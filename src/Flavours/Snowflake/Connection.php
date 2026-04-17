@@ -4,15 +4,49 @@ namespace LaravelPdoOdbc\Flavours\Snowflake;
 
 use PDO;
 use PDOStatement;
+use DateTimeInterface;
+use LaravelPdoOdbc\ODBCConnection;
+
 use function is_bool;
 use function is_null;
-use DateTimeInterface;
 use function is_float;
 use function is_string;
-use LaravelPdoOdbc\ODBCConnection;
 
 class Connection extends ODBCConnection
 {
+    /**
+     * Temporary file path for private key
+     */
+    protected ?string $tempKeyFile = null;
+
+    /**
+     * Create a new database connection instance.
+     *
+     * @param PDO $pdo
+     * @param string $database
+     * @param string $tablePrefix
+     * @param array $config
+     */
+    public function __construct($pdo, $database = '', $tablePrefix = '', array $config = [])
+    {
+        parent::__construct($pdo, $database, $tablePrefix, $config);
+
+        // On Windows we need to create a temp file for the key. Store the path for cleanup in destruct.
+        if (isset($config['PRIVATE_KEY_FILE'])) {
+            $this->tempKeyFile = $config['PRIVATE_KEY_FILE'];
+        }
+    }
+
+    /**
+     * Clean up temporary key file when connection is destroyed
+     */
+    public function __destruct()
+    {
+        if ($this->tempKeyFile && file_exists($this->tempKeyFile)) {
+            unlink($this->tempKeyFile);
+        }
+    }
+
     /**
      * {@inheritdoc}
      */
@@ -30,10 +64,10 @@ class Connection extends ODBCConnection
         $queryGrammar = $this->getConfig('options.grammar.query');
 
         if ($queryGrammar) {
-            return new $queryGrammar();
+            return new $queryGrammar($this);
         }
 
-        return new Grammars\Query();
+        return new Grammars\Query($this);
     }
 
     public function getDefaultSchemaGrammar()
@@ -41,10 +75,10 @@ class Connection extends ODBCConnection
         $schemaGrammar = $this->getConfig('options.grammar.schema');
 
         if ($schemaGrammar) {
-            return new $schemaGrammar();
+            return new $schemaGrammar($this);
         }
 
-        return new Grammars\Schema();
+        return new Grammars\Schema($this);
     }
 
     /**
@@ -61,6 +95,9 @@ class Connection extends ODBCConnection
             $type = PDO::PARAM_STR;
             if (is_bool($value)) {
                 $value = $value ? 'TRUE' : 'FALSE';
+            } else if(is_string($value) && ctype_digit($value) && strlen($value) > 1 && $value[0] === '0'){
+                // Preserve numeric strings with leading zeros (e.g. "00123") as strings
+                $type = PDO::PARAM_STR;
             } elseif (is_numeric($value)) {
                 $type = PDO::PARAM_INT;
             }
@@ -92,6 +129,9 @@ class Connection extends ODBCConnection
                 $bindings[$key] = (bool) $value;
             } elseif (is_float($value)) {
                 $bindings[$key] = (float) $value;
+            } else if(is_string($value) && ctype_digit($value) && strlen($value) > 1 && $value[0] === '0'){
+                // Preserve numeric strings with leading zeros (e.g. "00123") as strings
+                $bindings[$key] = $value;
             } elseif (is_numeric($value)) {
                 $bindings[$key] = (int) $value;
             }

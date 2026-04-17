@@ -4,6 +4,7 @@ namespace LaravelPdoOdbc\Flavours\Snowflake\PDO;
 
 use PDO;
 use PDOStatement;
+use Illuminate\Support\Str;
 
 use function call_user_func_array;
 use function func_get_args;
@@ -11,7 +12,7 @@ use function is_float;
 
 use const FILTER_VALIDATE_BOOLEAN;
 
-class Statement80 extends PDOStatement
+class Statement extends PDOStatement
 {
     protected $pdo = null;
 
@@ -92,6 +93,11 @@ class Statement80 extends PDOStatement
             $query = reset($query);
         }
 
+        // When DDL, just execute directly
+        if (Str::startsWith(strtoupper(trim($query)), ['CREATE', 'ALTER', 'DROP'])) {
+            return (bool) $this->pdo->exec($query);
+        }
+        
         // reset PDO Statement for "parent"
         $this->exec = $this->pdo->prepare($query, [PDO::ATTR_STATEMENT_CLASS => [PDOStatement::class]]);
 

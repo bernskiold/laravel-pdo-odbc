@@ -34,7 +34,7 @@ class Connector extends ODBCConnector implements OdbcDriver
 
             if ($privateKey !== '') {
                 $config['authenticator'] = 'SNOWFLAKE_JWT';
-                $config['odbc_driver'] = $config['odbcdriver'];
+                $config['odbc_driver'] = Arr::get($config, 'odbcdriver');
 
                 if (defined('PHP_WINDOWS_VERSION_MAJOR') || stripos(PHP_OS, 'WIN') === 0) {
                     // Windows Snowflake ODBC does not support base64, so falling back to private key file path

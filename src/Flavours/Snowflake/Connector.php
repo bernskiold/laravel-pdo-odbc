@@ -47,10 +47,10 @@ class Connector extends ODBCConnector implements OdbcDriver
                         $config['PRIV_KEY_FILE_PWD'] = $config['priv_key_pwd'];
                     }
 
-                    $allowedKeys = ['driver','server','database','warehouse','schema','port','PRIV_KEY_FILE_PWD','odbc_driver','authenticator','PRIV_KEY_FILE', 'odbcdriver', 'username', 'options'];
+                    $allowedKeys = ['driver','account','server','database','warehouse','schema','port','PRIV_KEY_FILE_PWD','odbc_driver','authenticator','PRIV_KEY_FILE', 'odbcdriver', 'username', 'options'];
                 } else {
                     $config['priv_key_base64'] = base64_encode($privateKey);
-                    $allowedKeys = ['driver','server','database','warehouse','schema','port','priv_key_pwd','odbc_driver','authenticator','priv_key_base64', 'odbcdriver', 'username', 'options'];
+                    $allowedKeys = ['driver','account','server','database','warehouse','schema','port','priv_key_pwd','odbc_driver','authenticator','priv_key_base64', 'odbcdriver', 'username', 'options'];
                 }
 
                 $config = array_intersect_key($config, array_flip($allowedKeys));

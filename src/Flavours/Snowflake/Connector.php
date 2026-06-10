@@ -32,32 +32,47 @@ class Connector extends ODBCConnector implements OdbcDriver
         if (Arr::get($config, 'authenticator') === 'key_pair') {
             $privateKey = trim((string) Arr::get($config, 'private_key', ''));
 
-            if ($privateKey !== '') {
-                $config['authenticator'] = 'SNOWFLAKE_JWT';
-                $config['odbc_driver'] = Arr::get($config, 'odbcdriver');
-
-                if (defined('PHP_WINDOWS_VERSION_MAJOR') || stripos(PHP_OS, 'WIN') === 0) {
-                    // Windows Snowflake ODBC does not support base64, so falling back to private key file path
-                    $tempFile = tempnam(sys_get_temp_dir(), 'snowflake_key_');
-                    file_put_contents($tempFile, $privateKey);
-                    chmod($tempFile, 0600); // Secure the file
-
-                    $config['PRIV_KEY_FILE'] = $tempFile;
-                    if (isset($config['priv_key_pwd'])) {
-                        $config['PRIV_KEY_FILE_PWD'] = $config['priv_key_pwd'];
-                    }
-
-                    $allowedKeys = ['driver','account','server','database','warehouse','schema','port','PRIV_KEY_FILE_PWD','odbc_driver','authenticator','PRIV_KEY_FILE', 'odbcdriver', 'username', 'options'];
-                } else {
-                    $config['priv_key_base64'] = base64_encode($privateKey);
-                    $allowedKeys = ['driver','account','server','database','warehouse','schema','port','priv_key_pwd','odbc_driver','authenticator','priv_key_base64', 'odbcdriver', 'username', 'options'];
-                }
-
-                $config = array_intersect_key($config, array_flip($allowedKeys));
-            }
-            else{
+            if ($privateKey === '') {
                 throw new Exception('Private key is required for key_pair authentication');
             }
+
+            $config['authenticator'] = 'SNOWFLAKE_JWT';
+            $config['odbc_driver'] = Arr::get($config, 'odbcdriver');
+
+            $isWindows = defined('PHP_WINDOWS_VERSION_MAJOR') || stripos(PHP_OS, 'WIN') === 0;
+
+            if ($usingSnowflakeDriver) {
+                // The native pdo_snowflake driver only understands a private key file
+                // path via the lowercase priv_key_file / priv_key_file_pwd DSN params
+                // (it has no base64 option), so write the key to a temp file.
+                $tempFile = tempnam(sys_get_temp_dir(), 'snowflake_key_');
+                file_put_contents($tempFile, $privateKey);
+                chmod($tempFile, 0600); // Secure the file
+
+                $config['priv_key_file'] = $tempFile;
+                if (isset($config['priv_key_pwd'])) {
+                    $config['priv_key_file_pwd'] = $config['priv_key_pwd'];
+                }
+
+                $allowedKeys = ['driver','account','server','database','warehouse','schema','port','priv_key_file_pwd','odbc_driver','authenticator','priv_key_file', 'odbcdriver', 'username', 'options'];
+            } elseif ($isWindows) {
+                // Windows Snowflake ODBC does not support base64, so falling back to private key file path
+                $tempFile = tempnam(sys_get_temp_dir(), 'snowflake_key_');
+                file_put_contents($tempFile, $privateKey);
+                chmod($tempFile, 0600); // Secure the file
+
+                $config['PRIV_KEY_FILE'] = $tempFile;
+                if (isset($config['priv_key_pwd'])) {
+                    $config['PRIV_KEY_FILE_PWD'] = $config['priv_key_pwd'];
+                }
+
+                $allowedKeys = ['driver','account','server','database','warehouse','schema','port','PRIV_KEY_FILE_PWD','odbc_driver','authenticator','PRIV_KEY_FILE', 'odbcdriver', 'username', 'options'];
+            } else {
+                $config['priv_key_base64'] = base64_encode($privateKey);
+                $allowedKeys = ['driver','account','server','database','warehouse','schema','port','priv_key_pwd','odbc_driver','authenticator','priv_key_base64', 'odbcdriver', 'username', 'options'];
+            }
+
+            $config = array_intersect_key($config, array_flip($allowedKeys));
         }
 
         // the PDO Snowflake driver was installed and the driver was snowflake, start using snowflake driver.

@@ -1,15 +1,15 @@
 <?php
 
-namespace LaravelPdoOdbc\Flavours\Snowflake\Builders;
+namespace Bernskiold\LaravelSnowflake\Schema;
 
 use LogicException;
 use function count;
 use function in_array;
 use Illuminate\Database\Schema\Builder as BaseBuilder;
-use LaravelPdoOdbc\Flavours\Snowflake\Concerns\GrammarHelper;
-use LaravelPdoOdbc\Flavours\Snowflake\Processor;
+use Bernskiold\LaravelSnowflake\Concerns\GrammarHelper;
+use Bernskiold\LaravelSnowflake\SnowflakeProcessor;
 
-class Schema extends BaseBuilder
+class Builder extends BaseBuilder
 {
     use GrammarHelper;
 
@@ -23,7 +23,7 @@ class Schema extends BaseBuilder
     public function hasTable($table)
     {
         $schema = $this->connection->getDatabaseName();
-        $table = $this->connection->getTablePrefix().Processor::wrapTable($table);
+        $table = $this->connection->getTablePrefix().SnowflakeProcessor::wrapTable($table);
 
         return count($this->connection->select(
             $this->grammar->compileTableExists($schema, $table)

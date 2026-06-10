@@ -1,6 +1,6 @@
 <?php
 
-namespace LaravelPdoOdbc\Flavours\Snowflake\Grammars;
+namespace Bernskiold\LaravelSnowflake\Grammars;
 
 use RuntimeException;
 use Illuminate\Support\Fluent;

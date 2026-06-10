@@ -1,11 +1,12 @@
 <?php
 
-namespace LaravelPdoOdbc\Flavours\Snowflake;
+namespace Bernskiold\LaravelSnowflake;
 
 use Closure;
 use Exception;
-use LaravelPdoOdbc\Contracts\OdbcDriver;
-use LaravelPdoOdbc\ODBCConnector;
+use Bernskiold\LaravelSnowflake\Contracts\OdbcDriver;
+use Bernskiold\LaravelSnowflake\Odbc\OdbcConnector;
+use Bernskiold\LaravelSnowflake\PDO\Statement;
 use Illuminate\Support\Arr;
 
 use PDO;
@@ -14,7 +15,7 @@ use PDO;
  * Snowflake Connector
  * Inspiration: https://github.com/jenssegers/laravel-mongodb.
  */
-class Connector extends ODBCConnector implements OdbcDriver
+class SnowflakeConnector extends OdbcConnector implements OdbcDriver
 {
     /**
      * Establish a database connection.
@@ -53,7 +54,7 @@ class Connector extends ODBCConnector implements OdbcDriver
         }
 
         // custom Statement class to resolve Streaming value and parameters.
-        $connection->setAttribute(PDO::ATTR_STATEMENT_CLASS, [\LaravelPdoOdbc\Flavours\Snowflake\PDO\Statement::class, [$connection]]);
+        $connection->setAttribute(PDO::ATTR_STATEMENT_CLASS, [Statement::class, [$connection]]);
 
         $connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         return $connection;
@@ -133,7 +134,7 @@ class Connector extends ODBCConnector implements OdbcDriver
             $connection = (new self())->connect($config);
 
             // create connection
-            $db = new Connection($connection, $database, $prefix, $config);
+            $db = new SnowflakeConnection($connection, $database, $prefix, $config);
             if (!env('SNOWFLAKE_DISABLE_FORCE_QUOTED_IDENTIFIER')) {
                 $connection->exec('ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = false');
             }

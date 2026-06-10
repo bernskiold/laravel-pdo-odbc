@@ -1,13 +1,13 @@
 <?php
 
-namespace LaravelPdoOdbc\Flavours\Snowflake;
+namespace Bernskiold\LaravelSnowflake;
 
 use Illuminate\Support\Str;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Query\Processors\Processor as BaseProcessor;
 
-class Processor extends BaseProcessor
+class SnowflakeProcessor extends BaseProcessor
 {
     public static function wrapTable($tableName): string
     {

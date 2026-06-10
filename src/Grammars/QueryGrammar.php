@@ -1,17 +1,16 @@
 <?php
 
-namespace LaravelPdoOdbc\Flavours\Snowflake\Grammars;
+namespace Bernskiold\LaravelSnowflake\Grammars;
 
 use function is_array;
 
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\DB;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Grammars\Grammar;
-use LaravelPdoOdbc\Flavours\Snowflake\Concerns\GrammarHelper;
+use Bernskiold\LaravelSnowflake\Concerns\GrammarHelper;
 
-class Query extends Grammar
+class QueryGrammar extends Grammar
 {
     use GrammarHelper;
 
@@ -194,7 +193,7 @@ class Query extends Grammar
      */
     public function compileTruncate(Builder $query)
     {
-        return 'trunate table '.$this->wrapTable($query->from);
+        return 'truncate table '.$this->wrapTable($query->from);
     }
 
     /**
@@ -440,6 +439,6 @@ class Query extends Grammar
      */
     public function escape($value, $binary = false)
     {
-        return DB::connection()->getPdo()->quote($value);
+        return $this->connection->getPdo()->quote($value);
     }
 }

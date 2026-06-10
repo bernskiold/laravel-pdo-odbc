@@ -1,10 +1,10 @@
 <?php
 
-namespace LaravelPdoOdbc\Flavours\Snowflake\Concerns;
+namespace Bernskiold\LaravelSnowflake\Concerns;
 
 use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Schema\ColumnDefinition;
-use LaravelPdoOdbc\Flavours\Snowflake\Processor;
+use Bernskiold\LaravelSnowflake\SnowflakeProcessor;
 use Illuminate\Support\Str;
 
 use function count;
@@ -38,7 +38,7 @@ trait GrammarHelper
     public function wrapTable($table, $prefix = null)
     {
         if (method_exists($this, 'isExpression') && !$this->isExpression($table)) {
-            $table = Processor::wrapTable($table);
+            $table = SnowflakeProcessor::wrapTable($table);
             return $this->wrap($prefix . $table, true);
         }
 

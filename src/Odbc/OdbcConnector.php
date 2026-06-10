@@ -1,6 +1,6 @@
 <?php
 
-namespace LaravelPdoOdbc;
+namespace Bernskiold\LaravelSnowflake\Odbc;
 
 use Closure;
 use Exception;
@@ -8,10 +8,10 @@ use Illuminate\Database\Connectors\Connector;
 use Illuminate\Database\Connectors\ConnectorInterface;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
-use LaravelPdoOdbc\Contracts\OdbcDriver;
+use Bernskiold\LaravelSnowflake\Contracts\OdbcDriver;
 use PDO;
 
-class ODBCConnector extends Connector implements ConnectorInterface, OdbcDriver
+class OdbcConnector extends Connector implements ConnectorInterface, OdbcDriver
 {
     /**
      * Set dynamically the DSN prefix in case we need it.
@@ -57,7 +57,7 @@ class ODBCConnector extends Connector implements ConnectorInterface, OdbcDriver
             if ($flavour = Arr::get($config, 'options.flavour')) {
                 $connection->setAttribute(PDO::ATTR_STATEMENT_CLASS, [$flavour, [$connection]]);
             }
-            $connection = new ODBCConnection($connection, $database, $prefix, $config);
+            $connection = new OdbcConnection($connection, $database, $prefix, $config);
 
             return $connection;
         };

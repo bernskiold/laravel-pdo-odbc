@@ -1,12 +1,13 @@
 <?php
 
-namespace LaravelPdoOdbc\Flavours\Snowflake\Grammars;
+namespace Bernskiold\LaravelSnowflake\Grammars;
 
 use Illuminate\Database\Connection;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Grammars\Grammar as BaseGrammar;
 use Illuminate\Support\Fluent;
-use LaravelPdoOdbc\Flavours\Snowflake\Concerns\GrammarHelper;
+use Illuminate\Database\Query\Expression;
+use Bernskiold\LaravelSnowflake\Concerns\GrammarHelper;
 use RuntimeException;
 
 use function in_array;
@@ -25,7 +26,7 @@ use const FILTER_VALIDATE_BOOLEAN;
  * Rules for altering can be found here:
  *     https://docs.snowflake.com/en/sql-reference/sql/alter-table-column.html
  */
-class Schema extends BaseGrammar
+class SchemaGrammar extends BaseGrammar
 {
     use GrammarHelper;
 
@@ -68,7 +69,7 @@ class Schema extends BaseGrammar
     public function compileTableDetails(string $table)
     {
         return sprintf(
-            "select * from information_schema.tables where table_name = '%s' order by ordinal_position'",
+            "select * from information_schema.tables where table_name = '%s' order by ordinal_position",
             $this->wrapTable($table)
         );
     }
@@ -130,22 +131,36 @@ class Schema extends BaseGrammar
     public function compileAdd(Blueprint $blueprint, Fluent $command)
     {
         $prefix = 'alter table '.$this->wrapTable($blueprint).' add column';
-        return $this->prefixArray($prefix, $this->getColumns($blueprint));
+
+        // Laravel dispatches one "add" command per column. Only compile all
+        // added columns when the command does not carry a single column.
+        $columns = $command->column
+            ? $this->handleNullables($this->getColumnModifiers([$command->column], $blueprint), false)
+            : $this->getColumns($blueprint);
+
+        return $this->prefixArray($prefix, $columns);
     }
 
     /**
-     * Compile an add column command.
+     * Compile a change column command.
      *
      * @return array
      */
     public function compileChangeColumn(Blueprint $blueprint, Fluent $command)
     {
         $prefix = sprintf('alter table %s modify column', $this->wrapTable($blueprint));
-        $columns = $this->prefixArray($prefix, $this->getChangedColumns($blueprint));
+
+        // Laravel dispatches one "change" command per column. Only compile all
+        // changed columns when the command does not carry a single column.
+        $columns = $command->column
+            ? $this->handleNullables($this->getColumnModifiers([$command->column], $blueprint), true)
+            : $this->getChangedColumns($blueprint);
+
+        $columns = $this->prefixArray($prefix, $columns);
 
         return array_values(array_merge(
             $columns,
-            $this->compileAutoIncrementStartingValues($blueprint, $command)
+            (array) $this->compileAutoIncrementStartingValues($blueprint, $command)
         ));
     }
 
@@ -1119,6 +1134,10 @@ class Schema extends BaseGrammar
                 } elseif (str_contains($column, ' null')) {
                     // query: "column" drop not null
                     preg_match('/(\".+\"\s)/', $column, $match);
+                    if (count($match) === 0) {
+                        $match = explode(' ', $column);
+                    }
+
                     $columns[] = trim($match[0]).' drop not null';
                     $column = str_replace(' null', '', $column);
                 }

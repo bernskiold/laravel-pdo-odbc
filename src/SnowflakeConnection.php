@@ -1,18 +1,18 @@
 <?php
 
-namespace LaravelPdoOdbc\Flavours\Snowflake;
+namespace Bernskiold\LaravelSnowflake;
 
 use PDO;
 use PDOStatement;
 use DateTimeInterface;
-use LaravelPdoOdbc\ODBCConnection;
+use Bernskiold\LaravelSnowflake\Odbc\OdbcConnection;
 
 use function is_bool;
 use function is_null;
 use function is_float;
 use function is_string;
 
-class Connection extends ODBCConnection
+class SnowflakeConnection extends OdbcConnection
 {
     /**
      * Temporary file path for private key
@@ -56,7 +56,7 @@ class Connection extends ODBCConnection
             $this->useDefaultSchemaGrammar();
         }
 
-        return new Builders\Schema($this);
+        return new Schema\Builder($this);
     }
 
     public function getDefaultQueryGrammar()
@@ -67,7 +67,7 @@ class Connection extends ODBCConnection
             return new $queryGrammar($this);
         }
 
-        return new Grammars\Query($this);
+        return new Grammars\QueryGrammar($this);
     }
 
     public function getDefaultSchemaGrammar()
@@ -78,7 +78,7 @@ class Connection extends ODBCConnection
             return new $schemaGrammar($this);
         }
 
-        return new Grammars\Schema($this);
+        return new Grammars\SchemaGrammar($this);
     }
 
     /**
@@ -143,7 +143,7 @@ class Connection extends ODBCConnection
     /**
      * Get the default post processor instance.
      *
-     * @return ODBCProcessor
+     * @return \Illuminate\Database\Query\Processors\Processor
      */
     protected function getDefaultPostProcessor()
     {
@@ -153,6 +153,6 @@ class Connection extends ODBCConnection
             return new $processor();
         }
 
-        return new Processor();
+        return new SnowflakeProcessor();
     }
 }

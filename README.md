@@ -1,78 +1,149 @@
-# ODBC/Snowflake Integration for Laravel Framework
+# Laravel Snowflake
 
-Enjoying this project?
+A Snowflake database driver for Laravel, with full support for the query
+builder, Eloquent and schema migrations. It connects to Snowflake either
+through the native [`pdo_snowflake`](https://github.com/snowflakedb/pdo_snowflake)
+PHP extension (recommended) or through ODBC, and also works as a generic
+PDO/ODBC driver for other ODBC data sources.
 
-[![Buy us a coffee](https://img.shields.io/badge/☕-Buy%20us%20a%20coffee-orange)](https://buy.stripe.com/5kAdTS2Xm45p2IM9AA)
+## Requirements
 
-This repository provides seamless integration of ODBC/Snowflake with Laravel Eloquent.
-It aims to create a comprehensive ODBC package for Laravel, while also
-functioning as a standalone solution.
+- PHP 8.2+
+- Laravel 12+
+- The [`pdo_snowflake`](https://github.com/snowflakedb/pdo_snowflake) extension
+  (for native connections) **or** the
+  [Snowflake ODBC driver](https://docs.snowflake.com/en/developer-guide/odbc/odbc)
+  together with PHP's `odbc` and `pdo_odbc` extensions
 
-Unlike the `odbc_*` functions, this package utilizes the `PDO` class,
-resulting in smoother and more convenient integration with Eloquent.
-
-The primary goal of this package is to offer a standardized approach to connect
-with an ODBC connection. It supports custom grammars and schemas to accommodate
-various ODBC connections, such as Snowflake.
-
-## How to Install
-
-Before proceeding, ensure that you have PHP version 8.x installed on your system.
-
-To add the package to your project, run the following command:
+## Installation
 
 ```bash
-composer require yoramdelangen/laravel-pdo-odbc
+composer require bernskiold/laravel-snowflake
 ```
 
-By default, the package will be automatically registered through the
-`package:discover` command.
-
-Alternatively, you can manually register the service provider in the `app.php` file:
+The service provider is registered automatically through package discovery.
+If you have disabled discovery, register it manually:
 
 ```php
 'providers' => [
-  // ...
-  LaravelPdoOdbc\ODBCServiceProvider::class,
-];
+    // ...
+    Bernskiold\LaravelSnowflake\SnowflakeServiceProvider::class,
+],
 ```
-
-If you intend to use the `snowflake_pdo` PHP extension, please follow the
-installation guide provided [here](https://github.com/snowflakedb/pdo_snowflake/)
-to set it up.
-
-Starting from version `1.2.0`, the package includes support for `snowflake_pdo`,
-but it will still function without the Snowflake extension (via ODBC).
 
 ## Configuration
 
-The available driver flavors are:
+Add a connection to `config/database.php`. The package registers three
+drivers:
 
-- ODBC (generic)
-- Snowflake (via ODBC and native through PHP extension)
-- ...
+| Driver | Description |
+| --- | --- |
+| `snowflake_native` | Snowflake through the `pdo_snowflake` extension (recommended) |
+| `snowflake` | Snowflake through the Snowflake ODBC driver |
+| `odbc` | Generic ODBC connection for any other data source |
 
-### Snowflake Specific environment variables
+### Native Snowflake (recommended)
 
-You have the option to customize the Snowflake driver using the following parameters:
+```php
+'snowflake' => [
+    'driver' => 'snowflake_native',
+    'account' => '{account_name}.eu-west-1',
+    'username' => env('SNOWFLAKE_USERNAME'),
+    'password' => env('SNOWFLAKE_PASSWORD'),
+    'database' => env('SNOWFLAKE_DATABASE'),
+    'warehouse' => env('SNOWFLAKE_WAREHOUSE'),
+    'schema' => 'PUBLIC',
+],
+```
+
+### Snowflake via ODBC
+
+```php
+'snowflake' => [
+    'driver' => 'snowflake',
+    // Absolute path to the driver file, or the name registered in odbcinst.ini.
+    'odbc_driver' => '/opt/snowflake/snowflakeodbc/lib/universal/libSnowflake.dylib',
+    'server' => '{account_name}.snowflakecomputing.com',
+    'username' => env('SNOWFLAKE_USERNAME'),
+    'password' => env('SNOWFLAKE_PASSWORD'),
+    'database' => env('SNOWFLAKE_DATABASE'),
+    'warehouse' => env('SNOWFLAKE_WAREHOUSE'),
+    'schema' => 'PUBLIC',
+    'options' => [
+        // Required for Snowflake ODBC usage.
+        \PDO::ODBC_ATTR_USE_CURSOR_LIBRARY => \PDO::ODBC_SQL_USE_DRIVER,
+    ],
+],
+```
+
+All configuration fields except `driver`, `odbc_driver`, `options`,
+`username`, `password`, `name` and `prefix` are appended to the DSN
+connection string, so any extra Snowflake connection parameter can simply be
+added to the connection configuration.
+
+### Key-pair authentication
+
+Both drivers support [key-pair authentication](https://docs.snowflake.com/en/user-guide/key-pair-auth).
+Set the `authenticator` to `key_pair` and provide the private key either as a
+path or inline:
+
+```php
+'snowflake' => [
+    'driver' => 'snowflake_native',
+    'account' => '{account_name}.eu-west-1',
+    'username' => env('SNOWFLAKE_USERNAME'),
+    'authenticator' => 'key_pair',
+
+    // Either a path to a PEM-encoded private key...
+    'private_key_path' => env('SNOWFLAKE_PRIVATE_KEY_PATH'),
+
+    // ...or the key itself. It is written to a temporary file (0600) that is
+    // removed as soon as the connection has been established.
+    'private_key' => env('SNOWFLAKE_PRIVATE_KEY'),
+
+    // Optional, when the private key is encrypted.
+    'private_key_passphrase' => env('SNOWFLAKE_PRIVATE_KEY_PASSPHRASE'),
+
+    'database' => env('SNOWFLAKE_DATABASE'),
+    'warehouse' => env('SNOWFLAKE_WAREHOUSE'),
+    'schema' => 'PUBLIC',
+],
+```
+
+### Generic ODBC connections
+
+```php
+'odbc-connection-name' => [
+    'driver' => 'odbc',
+    // Either reference a DSN configured in your ODBC manager...
+    'dsn' => 'OdbcConnectionName',
+    // ...or provide a full connection string:
+    // 'dsn' => 'Driver={Driver Name};Server=server.example.com;Port=443;Database={DatabaseName}',
+    'username' => env('DB_USERNAME'),
+    'password' => env('DB_PASSWORD'),
+],
+```
+
+## Options
+
+### Column case sensitivity
+
+Snowflake uppercases unquoted identifiers. By default this package follows
+that convention and uppercases all column and table names. To use quoted,
+case-sensitive identifiers instead, set:
 
 ```ini
-# When set to `false`, column names are automatically uppercased.
-SNOWFLAKE_COLUMNS_CASE_SENSITIVE=false
-
-# When set to `true`, column names are wrapped in double quotes and their
-# case is determined by the input.
 SNOWFLAKE_COLUMNS_CASE_SENSITIVE=true
 ```
 
-### Snowflake Query Grammar options
+### Case-insensitive LIKE
 
-When using the Snowflake flavour, the query grammar compiles `LIKE` clauses as
-`ILIKE` by default (case-insensitive). You can disable this behavior per
-connection:
+The query grammar compiles `LIKE` clauses to `ILIKE` (case-insensitive) by
+default, which matches typical Laravel expectations. Disable it per
+connection if you want Snowflake's case-sensitive `LIKE` behaviour:
 
 ```php
-'snowflake_pdo' => [
+'snowflake' => [
     // ...
     'options' => [
         'use_ilike' => false,
@@ -80,105 +151,51 @@ connection:
 ],
 ```
 
+### Quoted identifier session behaviour
+
+On connect, the package executes
+`ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = false` so quoted
+identifiers keep their case. Set the
+`SNOWFLAKE_DISABLE_FORCE_QUOTED_IDENTIFIER` environment variable to skip this.
+
 ## Usage
 
-Configuring the package is straightforward:
-
-**Add a Database Configuration to `database.php`**
-
-Starting from version 1.2, we recommend using the native Snowflake extension
-instead of ODBC, but we'll keep supporting it.
+Use the query builder and Eloquent as you would with any other connection:
 
 ```php
-'snowflake_pdo' => [
-    'driver' => 'snowflake_native',
-    'account' => '{account_name}.eu-west-1',
-    'username' => '{username}',
-    'password' => '{password}',
-    'database' => '{database}',
-    'warehouse' => '{warehouse}',
-    'schema' => 'PUBLIC', // change it if necessary.
-    'options' => [
-        // Required for Snowflake usage
-        \PDO::ODBC_ATTR_USE_CURSOR_LIBRARY => \PDO::ODBC_SQL_USE_DRIVER
-    ]
-],
+use Illuminate\Support\Facades\DB;
+
+$books = DB::connection('snowflake')
+    ->table('books')
+    ->where('author', 'Abram Andrea')
+    ->get();
+
+$books = Book::where('author', 'Abram Andrea')->get();
 ```
 
-You have multiple ways to configure the ODBC connection:
+## Testing
 
-1. Simple configuration using DSN only:
+The package ships with a [Pest](https://pestphp.com) test suite:
 
-   ```php
-   'odbc-connection-name' => [
-       'driver' => 'odbc',
-       'dsn' => 'OdbcConnectionName', // odbc: will be prefixed
-       'username' => 'username',
-       'password' => 'password'
-   ]
-   ```
-
-   or, if you don't have a datasource configured within your ODBC Manager:
-
-   ```php
-   'odbc-connection-name' => [
-       'driver' => 'odbc',
-       'dsn' => 'Driver={Your Snowflake Driver};Server=snowflake.example.com;Port=443;Database={DatabaseName}',
-       'username' => 'username',
-       'password' => 'password'
-   ]
-   ```
-
-   > Note: The DSN `Driver` parameter can either be an absolute path to your
-   > driver file or the name registered within the `odbcinst.ini` file/ODBC manager.
-
-2. Dynamic configuration:
-
-   ```php
-   'odbc-connection-name' => [
-       'driver' => 'snowflake',
-       // please change this path accordingly your exact location
-       'odbc_driver' => '/opt/snowflake/snowflakeodbc/lib/universal/libSnowflake.dylib',
-       // 'odbc_driver' => 'Snowflake path Driver',
-       'server' => 'host.example.com',
-       'username' => 'username',
-       'password' => 'password',
-       'warehouse' => 'warehouse name',
-       'schema' => 'PUBLIC', // most ODBC connections use the default value
-   ]
-   ```
-
-   > All fields, except for `driver`, `odbc_driver`, `options`, `username`, and
-   > `password`, will be dynamically added to the DSN connection string.
-   >
-   > Note: The DSN `odbc_driver` parameter can either be an absolute path to
-   > your driver file or the name registered within the `odbcinst.ini`
-   > file/ODBC manager.
-
-## Eloquent ORM
-
-You can use Laravel, Eloquent ORM, and other Illuminate components as usual.
-
-```php
-# Facade
-$books = DB::connection('odbc-connection-name')
-            ->table('books')
-            ->where('Author', 'Abram Andrea')
-            ->get();
-
-# ORM
-$books = Book::where('Author', 'Abram Andrea')->get();
+```bash
+composer test
 ```
 
-## Troubleshooting and more info
+## Further documentation
 
-We have documented all weird behavious we encountered with the ODBC driver for
-Snowflake. In case of trouble of weird messages, checkout the following links:
+- [Snowflake ODBC notes](docs/snowflake-odbc.md)
+- [Snowflake ODBC troubleshooting](docs/snowflake-odbc-troubleshooting.md)
+- [Custom `getLastInsertId()` behaviour](docs/custom-last-insert-id.md)
+- [Custom processor and grammars](docs/custom-grammars.md)
 
-- [Snowflake ODBC](docs/snowflake-odbc.md)
-- [Snowflake ODBC Troubleshooting](docs/snowflake-odbc-troubleshooting.md)
+## Credits & Thanks
 
-## Customization
+This package started as a fork of
+[`yoramdelangen/laravel-pdo-odbc`](https://github.com/yoramdelangen/laravel-pdo-odbc)
+by Yoram de Langen. Many thanks to Yoram and all of the original
+contributors for laying the groundwork for Snowflake and ODBC support in
+Laravel.
 
-- [Custom `getLastInsertId()` Function](docs/custom-last-insert-id.md)
-- [Custom Processor/QueryGrammar/SchemaGrammar](docs/custom-grammers.md)
+## License
+
+[MIT](LICENSE.md)

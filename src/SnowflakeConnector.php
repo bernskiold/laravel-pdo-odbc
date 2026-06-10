@@ -53,8 +53,12 @@ class SnowflakeConnector extends OdbcConnector implements OdbcDriver
             }
         }
 
-        // custom Statement class to resolve Streaming value and parameters.
-        $connection->setAttribute(PDO::ATTR_STATEMENT_CLASS, [Statement::class, [$connection]]);
+        // The Snowflake ODBC driver cannot stream bind values, so a custom
+        // statement class interpolates them instead. The native pdo_snowflake
+        // driver binds parameters properly and keeps the default statement.
+        if (! $usingSnowflakeDriver) {
+            $connection->setAttribute(PDO::ATTR_STATEMENT_CLASS, [Statement::class, [$connection]]);
+        }
 
         $connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         return $connection;
@@ -135,7 +139,17 @@ class SnowflakeConnector extends OdbcConnector implements OdbcDriver
 
             // create connection
             $db = new SnowflakeConnection($connection, $database, $prefix, $config);
-            if (!env('SNOWFLAKE_DISABLE_FORCE_QUOTED_IDENTIFIER')) {
+
+            // Keep quoted identifiers case-sensitive so the grammar's quoting
+            // semantics hold, unless explicitly disabled per connection or
+            // through the environment.
+            $forceQuoted = Arr::get($config, 'options.force_quoted_identifiers');
+
+            if ($forceQuoted === null) {
+                $forceQuoted = ! env('SNOWFLAKE_DISABLE_FORCE_QUOTED_IDENTIFIER');
+            }
+
+            if ($forceQuoted) {
                 $connection->exec('ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = false');
             }
 

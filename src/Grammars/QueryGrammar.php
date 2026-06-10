@@ -2,13 +2,16 @@
 
 namespace Bernskiold\LaravelSnowflake\Grammars;
 
-use function is_array;
-
-use Illuminate\Support\Arr;
-use Illuminate\Support\Str;
+use Bernskiold\LaravelSnowflake\Concerns\GrammarHelper;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Grammars\Grammar;
-use Bernskiold\LaravelSnowflake\Concerns\GrammarHelper;
+use RuntimeException;
+
+use function is_array;
+use function is_bool;
+use function is_float;
+use function is_int;
+use function is_null;
 
 class QueryGrammar extends Grammar
 {
@@ -23,7 +26,8 @@ class QueryGrammar extends Grammar
         '=', '<', '>', '<=', '>=', '<>', '!=',
         'like', 'not like',
         'ilike', 'not ilike',
-        // '&', '|', '<<', '>>',
+        'rlike', 'not rlike',
+        'regexp', 'not regexp',
     ];
 
     /**
@@ -60,7 +64,9 @@ class QueryGrammar extends Grammar
 
         $value = $this->parameter($where['value']);
 
-        return $this->wrap($where['column']).' '.$where['operator'].' '.$value;
+        $operator = str_replace('?', '??', $where['operator']);
+
+        return $this->wrap($where['column']).' '.$operator.' '.$value;
     }
 
     /**
@@ -83,93 +89,47 @@ class QueryGrammar extends Grammar
     }
 
     /**
-     * The components that make up a select clause.
-     *
-     * @var string[]
-     */
-    protected $selectComponents = [
-        'aggregate',
-        'columns',
-        'from',
-        'at',
-        'before',
-        'pivot',
-        'unpivot',
-        'values',
-        'joins',
-        'wheres',
-        'groups',
-        'havings',
-        'orders',
-        'limit',
-        'offset',
-        'lock',
-    ];
-
-    /**
      * Compile an update statement into SQL.
      *
      * @return string
      */
     public function compileUpdate(Builder $query, array $values)
     {
-        if (isset($query->joins) || isset($query->limit)) {
-            return $this->compileUpdateWithJoinsOrLimit($query, $values);
+        if (isset($query->limit)) {
+            throw new RuntimeException('Snowflake does not support update statements with a limit.');
         }
 
         return parent::compileUpdate($query, $values);
     }
 
     /**
-     * Compile an insert ignore statement into SQL.
+     * Compile an update statement with joins into SQL.
+     *
+     * @param  string  $table
+     * @param  string  $columns
+     * @param  string  $where
      *
      * @return string
      */
-    public function compileInsertOrIgnore(Builder $query, array $values)
+    protected function compileUpdateWithJoins(Builder $query, $table, $columns, $where)
     {
-        return Str::replaceFirst('insert', 'insert or ignore', $this->compileInsert($query, $values));
+        throw new RuntimeException('Snowflake does not support update statements with joins. Use a merge statement instead.');
     }
 
     /**
-     * Compile an "upsert" statement into SQL.
+     * Compile the columns for an update statement.
      *
      * @return string
      */
-    public function compileUpsert(Builder $query, array $values, array $uniqueBy, array $update)
+    protected function compileUpdateColumns(Builder $query, array $values)
     {
-        $sql = $this->compileInsert($query, $values);
+        foreach (array_keys($values) as $key) {
+            if ($this->isJsonSelector($key)) {
+                throw new RuntimeException('Snowflake does not support updating individual JSON keys. Update the entire column instead.');
+            }
+        }
 
-        $sql .= ' on conflict ('.$this->columnize($uniqueBy).') do update set ';
-
-        $columns = collect($update)->map(function ($value, $key) {
-            return is_numeric($key)
-                ? $this->wrap($value).' = '.$this->wrapValue('excluded').'.'.$this->wrap($value)
-                : $this->wrap($key).' = '.$this->parameter($value);
-        })->implode(', ');
-
-        return $sql.$columns;
-    }
-
-    /**
-     * Prepare the bindings for an update statement.
-     *
-     * @return array
-     */
-    public function prepareBindingsForUpdate(array $bindings, array $values)
-    {
-        $groups = $this->groupJsonColumnsForUpdate($values);
-
-        $values = collect($values)->reject(function ($value, $key) {
-            return $this->isJsonSelector($key);
-        })->merge($groups)->map(function ($value) {
-            return is_array($value) ? json_encode($value) : $value;
-        })->all();
-
-        $cleanBindings = Arr::except($bindings, 'select');
-
-        return array_values(
-            array_merge($values, Arr::flatten($cleanBindings))
-        );
+        return parent::compileUpdateColumns($query, $values);
     }
 
     /**
@@ -179,31 +139,106 @@ class QueryGrammar extends Grammar
      */
     public function compileDelete(Builder $query)
     {
-        if (isset($query->joins) || isset($query->limit)) {
-            return $this->compileDeleteWithJoinsOrLimit($query);
+        if (isset($query->limit)) {
+            throw new RuntimeException('Snowflake does not support delete statements with a limit.');
         }
 
         return parent::compileDelete($query);
     }
 
     /**
-     * Compile a truncate table statement into SQL.
+     * Compile a delete statement with joins into SQL.
      *
-     * @return array
-     */
-    public function compileTruncate(Builder $query)
-    {
-        return 'truncate table '.$this->wrapTable($query->from);
-    }
-
-    /**
-     * Compile an insert statement into SQL.
+     * @param  string  $table
+     * @param  string  $where
      *
      * @return string
      */
-    public function compileInsert(Builder $query, array $values)
+    protected function compileDeleteWithJoins(Builder $query, $table, $where)
     {
-        return parent::compileInsert($query, $values);
+        throw new RuntimeException('Snowflake does not support delete statements with joins. Use a merge statement instead.');
+    }
+
+    /**
+     * Compile an insert ignore statement into SQL.
+     *
+     * @return string
+     */
+    public function compileInsertOrIgnore(Builder $query, array $values)
+    {
+        throw new RuntimeException('Snowflake does not support insert or ignore. Use upsert() instead.');
+    }
+
+    /**
+     * Compile an insert ignore statement using a subquery into SQL.
+     *
+     * @return string
+     */
+    public function compileInsertOrIgnoreUsing(Builder $query, array $columns, string $sql)
+    {
+        throw new RuntimeException('Snowflake does not support insert or ignore. Use upsert() instead.');
+    }
+
+    /**
+     * Compile an "upsert" statement into SQL using Snowflake's MERGE.
+     *
+     * @return string
+     */
+    public function compileUpsert(Builder $query, array $values, array $uniqueBy, array $update)
+    {
+        $table = $this->wrapTable($query->from);
+
+        $columns = array_keys(reset($values));
+
+        // Expose the bound values as a derived table. Snowflake names the
+        // columns of a VALUES clause column1..columnN, so alias them back to
+        // the real column names.
+        $source = collect(array_values($columns))
+            ->map(fn ($column, $index) => 'column'.($index + 1).' as '.$this->wrap($column))
+            ->implode(', ');
+
+        $rows = collect($values)
+            ->map(fn ($record) => '('.$this->parameterize($record).')')
+            ->implode(', ');
+
+        $on = collect($uniqueBy)
+            ->map(fn ($column) => $table.'.'.$this->wrap($column).' = laravel_source.'.$this->wrap($column))
+            ->implode(' and ');
+
+        $update = collect($update)
+            ->map(function ($value, $key) {
+                return is_numeric($key)
+                    ? $this->wrap($value).' = laravel_source.'.$this->wrap($value)
+                    : $this->wrap($key).' = '.$this->parameter($value);
+            })
+            ->implode(', ');
+
+        $insertColumns = $this->columnize($columns);
+
+        $insertValues = collect($columns)
+            ->map(fn ($column) => 'laravel_source.'.$this->wrap($column))
+            ->implode(', ');
+
+        $sql = "merge into {$table} using (select {$source} from values {$rows}) as laravel_source on {$on}";
+
+        if ($update !== '') {
+            $sql .= " when matched then update set {$update}";
+        }
+
+        return $sql." when not matched then insert ({$insertColumns}) values ({$insertValues})";
+    }
+
+    /**
+     * Compile an exists statement into SQL.
+     *
+     * Snowflake does not allow EXISTS() in a select list, so count the rows
+     * of the wrapped query instead.
+     *
+     * @return string
+     */
+    public function compileExists(Builder $query)
+    {
+        return 'select count(*) as "exists" from ('.$this->compileSelect($query).') as laravel_exists';
     }
 
     /**
@@ -226,11 +261,15 @@ class QueryGrammar extends Grammar
             $column = 'distinct '.$column;
         }
 
+        // The alias is always double-quoted so the result set key is
+        // "aggregate" regardless of the connection's casing mode.
         return 'select '.$aggregate['function'].'('.$column.') as "aggregate"';
     }
 
     /**
      * Compile the lock into SQL.
+     *
+     * Snowflake has no row-level locking.
      *
      * @param bool|string $value
      *
@@ -239,6 +278,18 @@ class QueryGrammar extends Grammar
     protected function compileLock(Builder $query, $value)
     {
         return '';
+    }
+
+    /**
+     * Determine if the grammar supports savepoints.
+     *
+     * Snowflake does not support savepoints (nested transactions).
+     *
+     * @return bool
+     */
+    public function supportsSavepoints()
+    {
+        return false;
     }
 
     /**
@@ -333,7 +384,6 @@ class QueryGrammar extends Grammar
 
         // Map generic formats to Snowflake TO_VARCHAR patterns
         $format = match ($type) {
-            '%Y-%m-%d' => 'YYYY-MM-DD',
             '%d' => 'DD',
             '%m' => 'MM',
             '%Y' => 'YYYY',
@@ -345,75 +395,20 @@ class QueryGrammar extends Grammar
     }
 
     /**
-     * Compile the columns for an update statement.
+     * Split the given JSON selector into the wrapped field and the quoted
+     * GET_PATH path expression.
      *
-     * @return string
+     * @return array{0: string, 1: string}
      */
-    protected function compileUpdateColumns(Builder $query, array $values)
+    protected function splitJsonFieldAndPath(string $column): array
     {
-        $jsonGroups = $this->groupJsonColumnsForUpdate($values);
+        $parts = explode('->', $column);
 
-        return collect($values)->reject(function ($value, $key) {
-            return $this->isJsonSelector($key);
-        })->merge($jsonGroups)->map(function ($value, $key) use ($jsonGroups) {
-            $column = last(explode('.', $key));
+        $field = $this->wrap(array_shift($parts));
 
-            $value = isset($jsonGroups[$key]) ? $this->compileJsonPatch($column, $value) : $this->parameter($value);
+        $path = implode('.', $parts);
 
-            return $this->wrap($column).' = '.$value;
-        })->implode(', ');
-    }
-
-    /**
-     * Group the nested JSON columns.
-     *
-     * @return array
-     */
-    protected function groupJsonColumnsForUpdate(array $values)
-    {
-        $groups = [];
-
-        foreach ($values as $key => $value) {
-            if ($this->isJsonSelector($key)) {
-                Arr::set($groups, str_replace('->', '.', Str::after($key, '.')), $value);
-            }
-        }
-
-        return $groups;
-    }
-
-    /**
-     * Compile an update statement with joins or limit into SQL.
-     *
-     * @return string
-     */
-    protected function compileUpdateWithJoinsOrLimit(Builder $query, array $values)
-    {
-        $table = $this->wrapTable($query->from);
-
-        $columns = $this->compileUpdateColumns($query, $values);
-
-        $alias = last(preg_split('/\s+as\s+/i', $query->from));
-
-        $selectSql = $this->compileSelect($query->select($alias.'.rowid'));
-
-        return "update {$table} set {$columns} where {$this->wrap('rowid')} in ({$selectSql})";
-    }
-
-    /**
-     * Compile a delete statement with joins or limit into SQL.
-     *
-     * @return string
-     */
-    protected function compileDeleteWithJoinsOrLimit(Builder $query)
-    {
-        $table = $this->wrapTable($query->from);
-
-        $alias = last(preg_split('/\s+as\s+/i', $query->from));
-
-        $selectSql = $this->compileSelect($query->select($alias.'.rowid'));
-
-        return "delete from {$table} where {$this->wrap('rowid')} in ({$selectSql})";
+        return [$field, "'".str_replace("'", "''", $path)."'"];
     }
 
     /**
@@ -425,13 +420,68 @@ class QueryGrammar extends Grammar
      */
     protected function wrapJsonSelector($value)
     {
-        [$field, $path] = $this->wrapJsonFieldAndPath($value);
+        [$field, $path] = $this->splitJsonFieldAndPath($value);
 
-        return 'get_path('.$field.', "'.$path.'")';
+        return 'get_path('.$field.', '.$path.')';
     }
 
     /**
-     * Escapes a value for safe SQL embedding.
+     * Compile a "JSON contains" statement into SQL.
+     *
+     * @param string $column
+     * @param string $value
+     *
+     * @return string
+     */
+    protected function compileJsonContains($column, $value)
+    {
+        $target = $this->isJsonSelector($column) ? $this->wrapJsonSelector($column) : $this->wrap($column);
+
+        return 'array_contains(parse_json('.$value.'), '.$target.')';
+    }
+
+    /**
+     * Prepare the binding for a "JSON contains" statement.
+     *
+     * @param mixed $binding
+     *
+     * @return string
+     */
+    public function prepareBindingForJsonContains($binding)
+    {
+        return json_encode($binding);
+    }
+
+    /**
+     * Compile a "JSON contains key" statement into SQL.
+     *
+     * @param string $column
+     *
+     * @return string
+     */
+    protected function compileJsonContainsKey($column)
+    {
+        return $this->wrapJsonSelector($column).' is not null';
+    }
+
+    /**
+     * Compile a "JSON length" statement into SQL.
+     *
+     * @param string $column
+     * @param string $operator
+     * @param string $value
+     *
+     * @return string
+     */
+    protected function compileJsonLength($column, $operator, $value)
+    {
+        $target = $this->isJsonSelector($column) ? $this->wrapJsonSelector($column) : $this->wrap($column);
+
+        return 'array_size('.$target.') '.$operator.' '.$value;
+    }
+
+    /**
+     * Escape a value for safe SQL embedding.
      *
      * @param  string|float|int|bool|null  $value
      * @param  bool  $binary
@@ -439,6 +489,28 @@ class QueryGrammar extends Grammar
      */
     public function escape($value, $binary = false)
     {
-        return $this->connection->getPdo()->quote($value);
+        if (is_null($value)) {
+            return 'null';
+        }
+
+        if (is_bool($value)) {
+            return $value ? 'true' : 'false';
+        }
+
+        if (is_int($value) || is_float($value)) {
+            return (string) $value;
+        }
+
+        if ($binary) {
+            return "to_binary('".bin2hex($value)."', 'hex')";
+        }
+
+        if (str_contains($value, "\00")) {
+            throw new RuntimeException('Strings with null bytes cannot be escaped. Use the binary escape option instead.');
+        }
+
+        // Backslash is an escape character inside Snowflake string literals,
+        // so it has to be escaped along with the quote itself.
+        return "'".str_replace(['\\', "'"], ['\\\\', "''"], $value)."'";
     }
 }

@@ -2,108 +2,45 @@
 
 namespace Bernskiold\LaravelSnowflake\Concerns;
 
-use Illuminate\Database\Query\Expression;
-use Illuminate\Database\Schema\ColumnDefinition;
-use Bernskiold\LaravelSnowflake\SnowflakeProcessor;
 use Illuminate\Support\Str;
 
-use function count;
-
 /**
- * This code is shared between the Query and Schema grammar.
- * Mainly for correcting the values and columns.
+ * Shared identifier handling for the Snowflake query and schema grammars.
  *
- * Values: are wrapped within single qoutes.
- * Columns and Table names: are wrapped within double qoutes.
+ * Snowflake folds unquoted identifiers to uppercase. By default this package
+ * follows that convention: identifiers are uppercased and left unquoted, so
+ * they match what Snowflake stores. When case sensitivity is enabled (via the
+ * "options.case_sensitive" connection option, or the
+ * SNOWFLAKE_COLUMNS_CASE_SENSITIVE environment variable), identifiers are
+ * wrapped in double quotes and keep the casing used in the query.
  */
 trait GrammarHelper
 {
     /**
-     * Convert an array of column names into a delimited string.
-     *
-     * @return string
+     * Determine if identifiers should be treated as case-sensitive.
      */
-    public function columnize(array $columns)
+    public function isCaseSensitive(): bool
     {
-        return implode(', ', array_map([$this, 'wrapColumn'], $columns));
-    }
+        $configured = $this->connection?->getConfig('options.case_sensitive');
 
-    /**
-     * Wrap a table in keyword identifiers.
-     *
-     * @param \Illuminate\Database\Query\Expression|Illuminate\Database\Schema\Blueprint|string $table
-     *
-     * @return string
-     */
-    public function wrapTable($table, $prefix = null)
-    {
-        if (method_exists($this, 'isExpression') && !$this->isExpression($table)) {
-            $table = SnowflakeProcessor::wrapTable($table);
-            return $this->wrap($prefix . $table, true);
+        if (null !== $configured) {
+            return (bool) $configured;
         }
 
-        return $this->getValue($table);
+        return (bool) env('SNOWFLAKE_COLUMNS_CASE_SENSITIVE', false);
     }
 
     /**
-     * Get the value of a raw expression.
-     *
-     * @param \Illuminate\Database\Query\Expression $expression
-     *
-     * @return string
+     * Fold an identifier name the way Snowflake stores it, for comparisons
+     * against information_schema and SHOW output.
      */
-    public function getValue($expression)
+    public function caseFoldName(string $name): string
     {
-        return $expression instanceof Expression ? $expression->getValue($this) : $expression;
+        return $this->isCaseSensitive() ? $name : Str::upper($name);
     }
 
     /**
-     * Wrap the given value segments.
-     *
-     * @param array $segments
-     *
-     * @return string
-     */
-    protected function wrapSegments($segments)
-    {
-        return collect($segments)->map(function ($segment, $key) use ($segments) {
-            return 0 === $key && count($segments) > 1
-                ? $this->wrapTable($segment)
-                // Original ->wraValue, but this is always called for columns segments
-                : $this->wrapColumn($segment);
-        })->implode('.');
-    }
-
-    /**
-     * Wrap a single string in keyword identifiers.
-     *
-     * @param string | \Illuminate\Database\Query\Expression $column
-     *
-     * @return string
-     */
-    protected function wrapColumn($column)
-    {
-        if (method_exists($this, 'isExpression') && $this->isExpression($column)) {
-            return $this->getValue($column);
-        }
-
-        if ($column instanceof ColumnDefinition) {
-            $column = $column->get('name');
-        }
-
-        if ('*' !== $column) {
-            if (! env('SNOWFLAKE_COLUMNS_CASE_SENSITIVE', false)) {
-                return str_replace('"', '', Str::upper($column));
-            }
-
-            return '"'.str_replace('"', '""', $column).'"';
-        }
-
-        return $column;
-    }
-
-    /**
-     * Wrap a single string in keypublic function wrapTable($table)word identifiers.
+     * Wrap a single identifier segment in keyword identifiers.
      *
      * @param string $value
      *
@@ -111,10 +48,14 @@ trait GrammarHelper
      */
     protected function wrapValue($value)
     {
-        if ('*' !== $value) {
-            return "'".str_replace("'", "''", $value)."'";
+        if ('*' === $value) {
+            return $value;
         }
 
-        return $value;
+        if (! $this->isCaseSensitive()) {
+            return Str::upper(str_replace('"', '', $value));
+        }
+
+        return '"'.str_replace('"', '""', $value).'"';
     }
 }

@@ -126,17 +126,32 @@ path or inline:
 ],
 ```
 
+All other connection parameters (for example `role`) are appended to the DSN
+automatically, so any Snowflake connection parameter can be set directly in
+the connection configuration.
+
 ## Options
 
 ### Column case sensitivity
 
-Snowflake uppercases unquoted identifiers. By default this package follows
-that convention and uppercases all column and table names. To use quoted,
-case-sensitive identifiers instead, set:
+Snowflake folds unquoted identifiers to uppercase. By default this package
+follows that convention and uppercases all column and table names, leaving
+them unquoted. To use quoted, case-sensitive identifiers instead, enable it
+per connection:
 
-```ini
-SNOWFLAKE_COLUMNS_CASE_SENSITIVE=true
+```php
+'snowflake' => [
+    // ...
+    'options' => [
+        'case_sensitive' => true,
+    ],
+],
 ```
+
+The `SNOWFLAKE_COLUMNS_CASE_SENSITIVE` environment variable is used as a
+fallback when the option is not set, but the connection option is
+recommended — environment lookups silently stop working once the
+configuration is cached (`php artisan config:cache`).
 
 ### Case-insensitive LIKE
 
@@ -157,8 +172,9 @@ connection if you want Snowflake's case-sensitive `LIKE` behaviour:
 
 On connect, the package executes
 `ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = false` so quoted
-identifiers keep their case. Set the
-`SNOWFLAKE_DISABLE_FORCE_QUOTED_IDENTIFIER` environment variable to skip this.
+identifiers keep their case. Disable it with the
+`'force_quoted_identifiers' => false` connection option (or the
+`SNOWFLAKE_DISABLE_FORCE_QUOTED_IDENTIFIER` environment variable).
 
 ## Usage
 
@@ -174,6 +190,75 @@ $books = DB::connection('snowflake')
 
 $books = Book::where('author', 'Abram Andrea')->get();
 ```
+
+### Upserts
+
+`upsert()` (and `updateOrCreate()`) compile to a native Snowflake
+`MERGE INTO` statement:
+
+```php
+DB::connection('snowflake')->table('flights')->upsert(
+    [['departure' => 'Oakland', 'destination' => 'San Diego', 'price' => 99]],
+    ['departure', 'destination'],
+    ['price']
+);
+```
+
+### JSON / VARIANT columns
+
+`$table->json()` columns are created as Snowflake `VARIANT` columns, and the
+query builder's JSON helpers compile to Snowflake's semi-structured
+functions:
+
+```php
+// get_path(SETTINGS, 'theme') = ?
+User::where('settings->theme', 'dark')->get();
+
+// array_contains(parse_json(?), TAGS)
+User::whereJsonContains('tags', 'admin')->get();
+
+// array_size(TAGS) > ?
+User::whereJsonLength('tags', '>', 2)->get();
+```
+
+### Time travel
+
+Two query builder macros expose [Snowflake time travel](https://docs.snowflake.com/en/sql-reference/constructs/at-before):
+
+```php
+// select * from ORDERS at (timestamp => '...'::timestamp_tz)
+DB::table('orders')->atTimestamp(now()->subHour())->get();
+
+// select * from ORDERS before (statement => '...')
+DB::table('orders')->beforeStatement('8e5d0ca9-005e-44e6-b858-a8f5b37c5726')->get();
+```
+
+Call the macro after `from()` / `table()` — it wraps the current table
+expression.
+
+### Schema inspection
+
+`Schema::getTables()`, `Schema::getColumns()`, `Schema::hasTable()`,
+`Schema::hasColumn()` and the `db:show` / `db:table` / `model:show` artisan
+commands work against `information_schema`. Since Snowflake has no indexes,
+index listings are always empty and `$table->index()` calls in migrations
+are silently skipped.
+
+### Known limitations
+
+These operations have no Snowflake equivalent and throw a `RuntimeException`
+with a descriptive message instead of emitting invalid SQL:
+
+- `insertOrIgnore()` — use `upsert()` instead
+- `update()` / `delete()` combined with `join()` or `limit()` — use a raw
+  `MERGE` statement instead
+- Updating individual JSON keys (`->update(['settings->theme' => ...])`) —
+  update the whole column instead
+
+Additionally: foreign key and unique constraints are created but Snowflake
+does not enforce them; `enum` columns are stored as plain `varchar`; locks
+(`lockForUpdate()`, `sharedLock()`) compile to nothing; and savepoints
+(nested transactions) are not supported.
 
 ## Testing
 

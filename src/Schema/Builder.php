@@ -2,17 +2,12 @@
 
 namespace Bernskiold\LaravelSnowflake\Schema;
 
-use LogicException;
-use function count;
-use function in_array;
 use Illuminate\Database\Schema\Builder as BaseBuilder;
-use Bernskiold\LaravelSnowflake\Concerns\GrammarHelper;
-use Bernskiold\LaravelSnowflake\SnowflakeProcessor;
+
+use function count;
 
 class Builder extends BaseBuilder
 {
-    use GrammarHelper;
-
     /**
      * Determine if the given table exists.
      *
@@ -22,76 +17,34 @@ class Builder extends BaseBuilder
      */
     public function hasTable($table)
     {
-        $schema = $this->connection->getDatabaseName();
-        $table = $this->connection->getTablePrefix().SnowflakeProcessor::wrapTable($table);
+        $table = $this->grammar->caseFoldName($this->connection->getTablePrefix().$table);
 
-        return count($this->connection->select(
-            $this->grammar->compileTableExists($schema, $table)
+        $schema = $this->connection->getConfig('schema');
+
+        return count($this->connection->selectFromWriteConnection(
+            $this->grammar->compileTableExists(
+                $this->connection->getDatabaseName(),
+                $table,
+                $schema ? $this->grammar->caseFoldName($schema) : null
+            )
         )) > 0;
-    }
-
-    /**
-     * Determine if the given table has a given column.
-     *
-     * @param string $table
-     * @param string $column
-     *
-     * @return bool
-     */
-    public function hasColumn($table, $column)
-    {
-        return in_array(
-            strtolower($column),
-            array_map('strtolower', $this->getColumnListing($table)),
-            true
-        );
-    }
-
-    /**
-     * Get the column listing for a given table.
-     *
-     * @param string $table
-     *
-     * @return array
-     */
-    public function getColumnListing($table)
-    {
-        $table = $this->connection->getTablePrefix().$this->wrapTable($table);
-
-        $results = $this->connection->select(
-            str_replace('{DB_NAME}', $this->connection->getDatabaseName(), $this->grammar->compileColumnListing()),
-            [$this->connection->getDatabaseName(), $table]
-        );
-
-        return $this->connection->getPostProcessor()->processColumnListing($results);
     }
 
     /**
      * Drop all tables from the database.
      *
+     * Snowflake drops one table per statement and has no (enforceable)
+     * foreign key checks to toggle.
+     *
      * @return void
      */
     public function dropAllTables()
     {
-        $tables = [];
-
-        foreach ($this->getAllTables() as $row) {
-            $row = (array) $row;
-
-            $tables[] = reset($row);
+        foreach ($this->getAllTables() as $table) {
+            $this->connection->statement(
+                'drop table if exists '.$this->grammar->wrapTable($table).' cascade'
+            );
         }
-
-        if (empty($tables)) {
-            return;
-        }
-
-        $this->disableForeignKeyConstraints();
-
-        $this->connection->statement(
-            $this->grammar->compileDropAllTables($tables)
-        );
-
-        $this->enableForeignKeyConstraints();
     }
 
     /**
@@ -101,53 +54,35 @@ class Builder extends BaseBuilder
      */
     public function dropAllViews()
     {
-        $views = [];
-
-        foreach ($this->getAllViews() as $row) {
-            $row = (array) $row;
-
-            $views[] = reset($row);
+        foreach ($this->getAllViews() as $view) {
+            $this->connection->statement(
+                'drop view if exists '.$this->grammar->wrapTable($view)
+            );
         }
-
-        if (empty($views)) {
-            return;
-        }
-
-        $this->connection->statement(
-            $this->grammar->compileDropAllViews($views)
-        );
     }
 
     /**
-     * Drop a database from the schema if the database exists.
+     * Get all of the table names for the current schema.
      *
-     * @param string $name
-     *
-     * @throws LogicException
-     *
-     * @return bool
+     * @return array
      */
-    public function dropDatabaseIfExists($name)
+    public function getAllTables()
     {
-        $this->connection->statement(
-            $this->grammar->compileDropDatabaseIfExists($name)
-        );
+        $tables = $this->connection->select($this->grammar->compileGetAllTables());
+
+        return array_column(array_map(fn ($table) => (array) $table, $tables), 'name');
     }
 
     /**
-     * Drop a database from the schema.
+     * Get all of the view names for the current schema.
      *
-     * @param string $name
-     *
-     * @throws LogicException
-     *
-     * @return bool
+     * @return array
      */
-    public function dropDatabase($name)
+    public function getAllViews()
     {
-        $this->connection->statement(
-            $this->grammar->compileDropDatabase($name)
-        );
+        $views = $this->connection->select($this->grammar->compileGetAllViews());
+
+        return array_column(array_map(fn ($view) => (array) $view, $views), 'name');
     }
 
     /**
@@ -160,59 +95,35 @@ class Builder extends BaseBuilder
     public function createDatabase($name)
     {
         return $this->connection->statement(
-            $this->grammar->compileCreateDatabase($name, $this->connection)
+            $this->grammar->compileCreateDatabase($name)
         );
     }
 
     /**
-     * Get all of the table names for the database.
+     * Drop a database from the schema.
      *
-     * @return array
-     */
-    public function getAllTables()
-    {
-        $tables = $this->connection->select($this->grammar->compileGetAllTables());
-
-        return array_column($tables, 'name');
-    }
-
-    /**
-     * Get all of the view names for the database.
+     * @param string $name
      *
-     * @return array
+     * @return bool
      */
-    public function getAllViews()
+    public function dropDatabase($name)
     {
-        return $this->connection->select(
-            $this->grammar->compileGetAllViews()
+        return $this->connection->statement(
+            $this->grammar->compileDropDatabase($name)
         );
     }
 
     /**
-     * Get the data type for the given column name.
+     * Drop a database from the schema if the database exists.
      *
-     * @param string $table
-     * @param string $column
+     * @param string $name
      *
-     * @return string
+     * @return bool
      */
-    public function getColumnType($table, $column, $fullDefinition = false)
+    public function dropDatabaseIfExists($name)
     {
-        $table = $this->connection->getTablePrefix().$table;
-
-        $record = $this->connection->select(
-            str_replace('{DB_NAME}', $this->connection->getDatabaseName(), $this->grammar->compileGetColumnType()),
-            [$table, $column]
+        return $this->connection->statement(
+            $this->grammar->compileDropDatabaseIfExists($name)
         );
-        $record = reset($record);
-
-        if (! $record) {
-            return null;
-        }
-
-        $record->numeric_precision = (int) $record->numeric_precision;
-        $record->numeric_scale = (int) $record->numeric_scale;
-
-        return $record;
     }
 }

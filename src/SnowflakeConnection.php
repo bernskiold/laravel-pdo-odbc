@@ -2,15 +2,14 @@
 
 namespace Bernskiold\LaravelSnowflake;
 
+use Bernskiold\LaravelSnowflake\Odbc\OdbcConnection;
+use DateTimeInterface;
 use PDO;
 use PDOStatement;
-use DateTimeInterface;
-use Bernskiold\LaravelSnowflake\Odbc\OdbcConnection;
 
 use function is_bool;
+use function is_int;
 use function is_null;
-use function is_float;
-use function is_string;
 
 class SnowflakeConnection extends OdbcConnection
 {
@@ -84,6 +83,9 @@ class SnowflakeConnection extends OdbcConnection
     /**
      * Bind values to their parameters in the given statement.
      *
+     * Booleans are bound as the literals TRUE/FALSE, which Snowflake coerces
+     * into its native boolean type.
+     *
      * @param PDOStatement $statement
      * @param array        $bindings
      *
@@ -92,26 +94,26 @@ class SnowflakeConnection extends OdbcConnection
     public function bindValues($statement, $bindings)
     {
         foreach ($bindings as $key => $value) {
-            $type = PDO::PARAM_STR;
-            if (is_bool($value)) {
-                $value = $value ? 'TRUE' : 'FALSE';
-            } else if(is_string($value) && ctype_digit($value) && strlen($value) > 1 && $value[0] === '0'){
-                // Preserve numeric strings with leading zeros (e.g. "00123") as strings
-                $type = PDO::PARAM_STR;
-            } elseif (is_numeric($value)) {
-                $type = PDO::PARAM_INT;
-            }
+            $parameter = is_string($key) ? $key : $key + 1;
 
-            $statement->bindValue(
-                is_string($key) ? $key : $key + 1,
-                $value,
-                $type
-            );
+            if (is_bool($value)) {
+                $statement->bindValue($parameter, $value ? 'TRUE' : 'FALSE', PDO::PARAM_STR);
+            } elseif (is_null($value)) {
+                $statement->bindValue($parameter, null, PDO::PARAM_NULL);
+            } elseif (is_int($value)) {
+                $statement->bindValue($parameter, $value, PDO::PARAM_INT);
+            } else {
+                $statement->bindValue($parameter, $value, PDO::PARAM_STR);
+            }
         }
     }
 
     /**
      * Prepare the query bindings for execution.
+     *
+     * Values are passed through untouched apart from dates, so that numeric
+     * strings (including those with leading zeros or decimals) are never
+     * silently coerced.
      *
      * @return array
      */
@@ -120,20 +122,8 @@ class SnowflakeConnection extends OdbcConnection
         $grammar = $this->getQueryGrammar();
 
         foreach ($bindings as $key => $value) {
-            // We need to transform all instances of DateTimeInterface into the actual
-            // date string. Each query grammar maintains its own date string format
-            // so we'll just ask the grammar for the format to get from the date.
             if ($value instanceof DateTimeInterface) {
                 $bindings[$key] = $value->format($grammar->getDateFormat());
-            } elseif (is_bool($value)) {
-                $bindings[$key] = (bool) $value;
-            } elseif (is_float($value)) {
-                $bindings[$key] = (float) $value;
-            } else if(is_string($value) && ctype_digit($value) && strlen($value) > 1 && $value[0] === '0'){
-                // Preserve numeric strings with leading zeros (e.g. "00123") as strings
-                $bindings[$key] = $value;
-            } elseif (is_numeric($value)) {
-                $bindings[$key] = (int) $value;
             }
         }
 

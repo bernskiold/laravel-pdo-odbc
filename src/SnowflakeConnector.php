@@ -7,6 +7,7 @@ use Exception;
 use Bernskiold\LaravelSnowflake\Contracts\OdbcDriver;
 use Bernskiold\LaravelSnowflake\Odbc\OdbcConnector;
 use Bernskiold\LaravelSnowflake\PDO\Statement;
+use Bernskiold\LaravelSnowflake\PackageConfig;
 use Illuminate\Support\Arr;
 
 use PDO;
@@ -142,11 +143,14 @@ class SnowflakeConnector extends OdbcConnector implements OdbcDriver
 
             // Keep quoted identifiers case-sensitive so the grammar's quoting
             // semantics hold, unless explicitly disabled per connection or
-            // through the environment.
+            // through the package configuration.
             $forceQuoted = Arr::get($config, 'options.force_quoted_identifiers');
 
             if ($forceQuoted === null) {
-                $forceQuoted = ! env('SNOWFLAKE_DISABLE_FORCE_QUOTED_IDENTIFIER');
+                $forceQuoted = PackageConfig::get(
+                    'force_quoted_identifiers',
+                    ! env('SNOWFLAKE_DISABLE_FORCE_QUOTED_IDENTIFIER')
+                );
             }
 
             if ($forceQuoted) {

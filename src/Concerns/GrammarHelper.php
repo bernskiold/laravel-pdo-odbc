@@ -2,6 +2,7 @@
 
 namespace Bernskiold\LaravelSnowflake\Concerns;
 
+use Bernskiold\LaravelSnowflake\PackageConfig;
 use Illuminate\Support\Str;
 
 /**
@@ -10,14 +11,17 @@ use Illuminate\Support\Str;
  * Snowflake folds unquoted identifiers to uppercase. By default this package
  * follows that convention: identifiers are uppercased and left unquoted, so
  * they match what Snowflake stores. When case sensitivity is enabled (via the
- * "options.case_sensitive" connection option, or the
- * SNOWFLAKE_COLUMNS_CASE_SENSITIVE environment variable), identifiers are
- * wrapped in double quotes and keep the casing used in the query.
+ * "options.case_sensitive" connection option, or the snowflake.case_sensitive
+ * config value), identifiers are wrapped in double quotes and keep the casing
+ * used in the query.
  */
 trait GrammarHelper
 {
     /**
      * Determine if identifiers should be treated as case-sensitive.
+     *
+     * Resolution order: per-connection option, package config, environment
+     * (the latter only applies when used outside a Laravel application).
      */
     public function isCaseSensitive(): bool
     {
@@ -27,7 +31,10 @@ trait GrammarHelper
             return (bool) $configured;
         }
 
-        return (bool) env('SNOWFLAKE_COLUMNS_CASE_SENSITIVE', false);
+        return (bool) PackageConfig::get(
+            'case_sensitive',
+            env('SNOWFLAKE_COLUMNS_CASE_SENSITIVE', false)
+        );
     }
 
     /**

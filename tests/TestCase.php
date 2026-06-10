@@ -32,28 +32,10 @@ abstract class TestCase extends BaseTestCase
     }
 
     /**
-     * Toggle the SNOWFLAKE_COLUMNS_CASE_SENSITIVE environment variable.
+     * Toggle the global snowflake.case_sensitive configuration value.
      */
-    protected function setColumnsCaseSensitive(?bool $value): void
+    protected function setColumnsCaseSensitive(bool $value): void
     {
-        if ($value === null) {
-            putenv('SNOWFLAKE_COLUMNS_CASE_SENSITIVE');
-            unset($_ENV['SNOWFLAKE_COLUMNS_CASE_SENSITIVE'], $_SERVER['SNOWFLAKE_COLUMNS_CASE_SENSITIVE']);
-
-            return;
-        }
-
-        $stringValue = $value ? 'true' : 'false';
-
-        putenv('SNOWFLAKE_COLUMNS_CASE_SENSITIVE='.$stringValue);
-        $_ENV['SNOWFLAKE_COLUMNS_CASE_SENSITIVE'] = $stringValue;
-        $_SERVER['SNOWFLAKE_COLUMNS_CASE_SENSITIVE'] = $stringValue;
-    }
-
-    protected function tearDown(): void
-    {
-        $this->setColumnsCaseSensitive(null);
-
-        parent::tearDown();
+        config()->set('snowflake.case_sensitive', $value);
     }
 }

@@ -17,6 +17,8 @@ class SnowflakeServiceProvider extends ServiceProvider
      */
     public function register()
     {
+        $this->mergeConfigFrom(__DIR__.'/../config/snowflake.php', 'snowflake');
+
         Connection::resolverFor('snowflake', SnowflakeConnector::registerDriver());
         Connection::resolverFor('snowflake_native', SnowflakeConnector::registerDriver());
         Connection::resolverFor('odbc', OdbcConnector::registerDriver());
@@ -29,6 +31,12 @@ class SnowflakeServiceProvider extends ServiceProvider
      */
     public function boot()
     {
+        if ($this->app->runningInConsole()) {
+            $this->publishes([
+                __DIR__.'/../config/snowflake.php' => config_path('snowflake.php'),
+            ], 'snowflake-config');
+        }
+
         $this->registerTimeTravelMacros();
     }
 

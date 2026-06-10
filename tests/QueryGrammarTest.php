@@ -13,7 +13,7 @@ it('uppercases identifiers by default', function () {
     expect($sql)->toBe('select * from USERS where NAME = ?');
 });
 
-it('quotes identifiers when case sensitivity is enabled via the environment', function () {
+it('quotes identifiers when case sensitivity is enabled via the global configuration', function () {
     $this->setColumnsCaseSensitive(true);
 
     $sql = connection()->query()->from('users')->where('name', 'John')->toSql();
@@ -28,7 +28,7 @@ it('quotes identifiers when case sensitivity is enabled via the connection optio
     expect($sql)->toBe('select * from "users" where "name" = ?');
 });
 
-it('lets the connection option override the environment for case sensitivity', function () {
+it('lets the connection option override the global configuration for case sensitivity', function () {
     $this->setColumnsCaseSensitive(true);
 
     $sql = connection(['options' => ['case_sensitive' => false]])

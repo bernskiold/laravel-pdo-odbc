@@ -33,6 +33,12 @@ If you have disabled discovery, register it manually:
 ],
 ```
 
+Optionally publish the configuration file to change the package defaults:
+
+```bash
+php artisan vendor:publish --tag=snowflake-config
+```
+
 ## Configuration
 
 Add a connection to `config/database.php`. The package registers three
@@ -132,12 +138,27 @@ the connection configuration.
 
 ## Options
 
+All package behaviour can be configured globally through
+`config/snowflake.php` (publish it with
+`php artisan vendor:publish --tag=snowflake-config`) and overridden per
+connection through the connection's `options` array. The config file reads
+its defaults from environment variables, so values keep working when the
+configuration is cached with `php artisan config:cache`.
+
+| Option | Default | Description |
+| --- | --- | --- |
+| `case_sensitive` | `false` | Quote identifiers and keep their casing instead of uppercasing them |
+| `use_ilike` | `true` | Compile `LIKE` to the case-insensitive `ILIKE` |
+| `force_quoted_identifiers` | `true` | Run `ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = false` on connect |
+
 ### Column case sensitivity
 
 Snowflake folds unquoted identifiers to uppercase. By default this package
 follows that convention and uppercases all column and table names, leaving
-them unquoted. To use quoted, case-sensitive identifiers instead, enable it
-per connection:
+them unquoted. To use quoted, case-sensitive identifiers instead, enable
+`case_sensitive` in `config/snowflake.php` (or the
+`SNOWFLAKE_COLUMNS_CASE_SENSITIVE` environment variable), or enable it for a
+single connection:
 
 ```php
 'snowflake' => [
@@ -148,16 +169,12 @@ per connection:
 ],
 ```
 
-The `SNOWFLAKE_COLUMNS_CASE_SENSITIVE` environment variable is used as a
-fallback when the option is not set, but the connection option is
-recommended — environment lookups silently stop working once the
-configuration is cached (`php artisan config:cache`).
-
 ### Case-insensitive LIKE
 
 The query grammar compiles `LIKE` clauses to `ILIKE` (case-insensitive) by
-default, which matches typical Laravel expectations. Disable it per
-connection if you want Snowflake's case-sensitive `LIKE` behaviour:
+default, which matches typical Laravel expectations. Disable it globally via
+`use_ilike` in `config/snowflake.php`, or per connection if you want
+Snowflake's case-sensitive `LIKE` behaviour:
 
 ```php
 'snowflake' => [
@@ -172,9 +189,8 @@ connection if you want Snowflake's case-sensitive `LIKE` behaviour:
 
 On connect, the package executes
 `ALTER SESSION SET QUOTED_IDENTIFIERS_IGNORE_CASE = false` so quoted
-identifiers keep their case. Disable it with the
-`'force_quoted_identifiers' => false` connection option (or the
-`SNOWFLAKE_DISABLE_FORCE_QUOTED_IDENTIFIER` environment variable).
+identifiers keep their case. Disable it via `force_quoted_identifiers` in
+`config/snowflake.php` or the same key in the connection's `options` array.
 
 ## Usage
 

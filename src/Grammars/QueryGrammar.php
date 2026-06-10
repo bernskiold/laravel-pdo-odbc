@@ -3,6 +3,7 @@
 namespace Bernskiold\LaravelSnowflake\Grammars;
 
 use Bernskiold\LaravelSnowflake\Concerns\GrammarHelper;
+use Bernskiold\LaravelSnowflake\PackageConfig;
 use Illuminate\Database\Query\Builder;
 use Illuminate\Database\Query\Grammars\Grammar;
 use RuntimeException;
@@ -37,7 +38,11 @@ class QueryGrammar extends Grammar
     {
         $value = $this->connection?->getConfig('options.use_ilike');
 
-        return $value === null ? true : (bool) $value;
+        if ($value !== null) {
+            return (bool) $value;
+        }
+
+        return (bool) PackageConfig::get('use_ilike', true);
     }
 
     /**

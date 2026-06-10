@@ -54,9 +54,9 @@ class Schema extends BaseGrammar
     public function compileTableExists($schema, $table)
     {
         return sprintf(
-            "select * from information_schema.tables where table_catalog = '%s' and table_name = '%s' and table_type = 'BASE TABLE'",
-            $this->wrapTable($table),
-            $this->wrapTable($schema)
+            "select * from information_schema.tables where table_catalog = %s and table_name = %s and table_type = 'BASE TABLE'",
+            $this->quoteString($schema),
+            $this->quoteString($table)
         );
     }
 

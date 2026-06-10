@@ -7,6 +7,7 @@ use function count;
 use function in_array;
 use Illuminate\Database\Schema\Builder as BaseBuilder;
 use LaravelPdoOdbc\Flavours\Snowflake\Concerns\GrammarHelper;
+use LaravelPdoOdbc\Flavours\Snowflake\Processor;
 
 class Schema extends BaseBuilder
 {
@@ -21,11 +22,11 @@ class Schema extends BaseBuilder
      */
     public function hasTable($table)
     {
-        $table = $this->connection->getTablePrefix().$this->wrapTable($table);
+        $schema = $this->connection->getDatabaseName();
+        $table = $this->connection->getTablePrefix().Processor::wrapTable($table);
 
         return count($this->connection->select(
-            $this->grammar->compileTableExists(),
-            [$this->connection->getDatabaseName(), $table]
+            $this->grammar->compileTableExists($schema, $table)
         )) > 0;
     }
 

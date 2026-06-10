@@ -1,5 +1,7 @@
 # Laravel Snowflake
 
+[![Tests](https://github.com/bernskiold/laravel-pdo-odbc/actions/workflows/tests.yml/badge.svg)](https://github.com/bernskiold/laravel-pdo-odbc/actions/workflows/tests.yml)
+
 A Snowflake database driver for Laravel, with full support for the query
 builder, Eloquent and schema migrations. It connects to Snowflake either
 through the native [`pdo_snowflake`](https://github.com/snowflakedb/pdo_snowflake)

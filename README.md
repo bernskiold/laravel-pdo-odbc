@@ -141,8 +141,8 @@ the connection configuration.
 All package behaviour can be configured globally through
 `config/snowflake.php` (publish it with
 `php artisan vendor:publish --tag=snowflake-config`) and overridden per
-connection through the connection's `options` array. The config file reads
-its defaults from environment variables, so values keep working when the
+connection through the connection's `options` array. Environment variables
+are only read inside the config file, so values keep working when the
 configuration is cached with `php artisan config:cache`.
 
 | Option | Default | Description |

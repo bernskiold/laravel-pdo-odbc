@@ -1,7 +1,6 @@
 <?php
 
 use Bernskiold\LaravelSnowflake\SnowflakeServiceProvider;
-use Illuminate\Container\Container;
 use Illuminate\Support\ServiceProvider;
 
 it('merges the package configuration with safe defaults', function () {
@@ -45,22 +44,4 @@ it('prefers per-connection options over the package configuration', function () 
     $sql = $connection->query()->from('users')->where('name', 'like', '%j%')->toSql();
 
     expect($sql)->toBe('select * from USERS where NAME ilike ?');
-});
-
-it('falls back to the environment when no container config is bound', function () {
-    putenv('SNOWFLAKE_COLUMNS_CASE_SENSITIVE=true');
-    $_ENV['SNOWFLAKE_COLUMNS_CASE_SENSITIVE'] = 'true';
-
-    $container = Container::getInstance();
-    Container::setInstance(null);
-
-    try {
-        $sql = $this->makeConnection()->query()->from('users')->where('name', 'John')->toSql();
-
-        expect($sql)->toBe('select * from "users" where "name" = ?');
-    } finally {
-        Container::setInstance($container);
-        putenv('SNOWFLAKE_COLUMNS_CASE_SENSITIVE');
-        unset($_ENV['SNOWFLAKE_COLUMNS_CASE_SENSITIVE']);
-    }
 });

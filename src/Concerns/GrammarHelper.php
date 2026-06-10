@@ -2,7 +2,6 @@
 
 namespace Bernskiold\LaravelSnowflake\Concerns;
 
-use Bernskiold\LaravelSnowflake\PackageConfig;
 use Illuminate\Support\Str;
 
 /**
@@ -20,21 +19,13 @@ trait GrammarHelper
     /**
      * Determine if identifiers should be treated as case-sensitive.
      *
-     * Resolution order: per-connection option, package config, environment
-     * (the latter only applies when used outside a Laravel application).
+     * The per-connection option takes precedence over the package config.
      */
     public function isCaseSensitive(): bool
     {
         $configured = $this->connection?->getConfig('options.case_sensitive');
 
-        if (null !== $configured) {
-            return (bool) $configured;
-        }
-
-        return (bool) PackageConfig::get(
-            'case_sensitive',
-            env('SNOWFLAKE_COLUMNS_CASE_SENSITIVE', false)
-        );
+        return (bool) ($configured ?? config('snowflake.case_sensitive', false));
     }
 
     /**

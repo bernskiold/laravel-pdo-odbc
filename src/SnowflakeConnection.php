@@ -4,6 +4,7 @@ namespace Bernskiold\LaravelSnowflake;
 
 use Bernskiold\LaravelSnowflake\Odbc\OdbcConnection;
 use DateTimeInterface;
+use Illuminate\Database\Query\Processors\Processor;
 use PDO;
 use PDOStatement;
 
@@ -21,10 +22,9 @@ class SnowflakeConnection extends OdbcConnection
     /**
      * Create a new database connection instance.
      *
-     * @param PDO $pdo
-     * @param string $database
-     * @param string $tablePrefix
-     * @param array $config
+     * @param  PDO  $pdo
+     * @param  string  $database
+     * @param  string  $tablePrefix
      */
     public function __construct($pdo, $database = '', $tablePrefix = '', array $config = [])
     {
@@ -86,9 +86,8 @@ class SnowflakeConnection extends OdbcConnection
      * Booleans are bound as the literals TRUE/FALSE, which Snowflake coerces
      * into its native boolean type.
      *
-     * @param PDOStatement $statement
-     * @param array        $bindings
-     *
+     * @param  PDOStatement  $statement
+     * @param  array  $bindings
      * @return void
      */
     public function bindValues($statement, $bindings)
@@ -133,16 +132,16 @@ class SnowflakeConnection extends OdbcConnection
     /**
      * Get the default post processor instance.
      *
-     * @return \Illuminate\Database\Query\Processors\Processor
+     * @return Processor
      */
     protected function getDefaultPostProcessor()
     {
         $processor = $this->getConfig('options.processor');
 
         if ($processor) {
-            return new $processor();
+            return new $processor;
         }
 
-        return new SnowflakeProcessor();
+        return new SnowflakeProcessor;
     }
 }

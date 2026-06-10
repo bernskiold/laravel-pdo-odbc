@@ -266,3 +266,28 @@ it('escapes values as Snowflake literals', function () {
         ->and($grammar->escape('a\\b'))->toBe("'a\\\\b'")
         ->and($grammar->escape("\x00\x01", true))->toBe("to_binary('0001', 'hex')");
 });
+
+it('compiles whereFullText using the SEARCH function', function () {
+    $query = connection()->query()->from('articles')->whereFullText('body', 'snowflake');
+
+    expect($query->toSql())->toBe('select * from ARTICLES where search(BODY, ?)')
+        ->and($query->getBindings())->toBe(['snowflake']);
+});
+
+it('compiles whereFullText over multiple columns', function () {
+    $sql = connection()->query()
+        ->from('articles')
+        ->whereFullText(['title', 'body'], 'snowflake')
+        ->toSql();
+
+    expect($sql)->toBe('select * from ARTICLES where search((TITLE, BODY), ?)');
+});
+
+it('compiles whereFullText with a custom analyzer', function () {
+    $sql = connection()->query()
+        ->from('articles')
+        ->whereFullText('body', 'snowflake', ['analyzer' => 'UNICODE_ANALYZER'])
+        ->toSql();
+
+    expect($sql)->toBe("select * from ARTICLES where search(BODY, ?, analyzer => 'UNICODE_ANALYZER')");
+});

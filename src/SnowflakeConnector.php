@@ -2,13 +2,12 @@
 
 namespace Bernskiold\LaravelSnowflake;
 
-use Closure;
-use Exception;
 use Bernskiold\LaravelSnowflake\Contracts\OdbcDriver;
 use Bernskiold\LaravelSnowflake\Odbc\OdbcConnector;
 use Bernskiold\LaravelSnowflake\PDO\Statement;
+use Closure;
+use Exception;
 use Illuminate\Support\Arr;
-
 use PDO;
 
 /**
@@ -38,7 +37,7 @@ class SnowflakeConnector extends OdbcConnector implements OdbcDriver
             $this->dsnPrefix = 'snowflake';
             $this->dsnIncludeDriver = false;
 
-            if (!extension_loaded('pdo_snowflake')) {
+            if (! extension_loaded('pdo_snowflake')) {
                 throw new Exception('Native Snowflake driver pdo_snowflake was not enabled');
             }
         }
@@ -61,6 +60,7 @@ class SnowflakeConnector extends OdbcConnector implements OdbcDriver
         }
 
         $connection->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
         return $connection;
     }
 
@@ -135,7 +135,7 @@ class SnowflakeConnector extends OdbcConnector implements OdbcDriver
     public static function registerDriver(): Closure
     {
         return function ($connection, $database, $prefix, $config) {
-            $connection = (new self())->connect($config);
+            $connection = (new self)->connect($config);
 
             // create connection
             $db = new SnowflakeConnection($connection, $database, $prefix, $config);

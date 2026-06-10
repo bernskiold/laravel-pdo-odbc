@@ -237,6 +237,23 @@ User::whereJsonContains('tags', 'admin')->get();
 User::whereJsonLength('tags', '>', 2)->get();
 ```
 
+### Full-text search
+
+`whereFullText()` compiles to Snowflake's
+[`SEARCH()`](https://docs.snowflake.com/en/sql-reference/functions/search)
+function:
+
+```php
+// search(BODY, ?)
+Article::whereFullText('body', 'snowflake')->get();
+
+// search((TITLE, BODY), ?)
+Article::whereFullText(['title', 'body'], 'snowflake')->get();
+
+// search(BODY, ?, analyzer => 'UNICODE_ANALYZER')
+Article::whereFullText('body', 'snowflake', ['analyzer' => 'UNICODE_ANALYZER'])->get();
+```
+
 ### Time travel
 
 Two query builder macros expose [Snowflake time travel](https://docs.snowflake.com/en/sql-reference/constructs/at-before):
@@ -276,12 +293,54 @@ does not enforce them; `enum` columns are stored as plain `varchar`; locks
 (`lockForUpdate()`, `sharedLock()`) compile to nothing; and savepoints
 (nested transactions) are not supported.
 
+### A note on `insertGetId()`
+
+Snowflake's PDO drivers do not support `lastInsertId`, so `insertGetId()`
+(used by `Model::create()` on auto-increment keys) selects `max()` of the
+key column after the insert. **This is inherently racy**: when several
+processes insert into the same table concurrently, the returned id can
+belong to another session's row. For tables written to by queue workers or
+concurrent requests, prefer client-generated keys instead:
+
+```php
+// In your migration
+$table->uuid('id')->primary();
+
+// In your model
+use Illuminate\Database\Eloquent\Concerns\HasUuids;
+```
+
+## Operational notes
+
+A few Snowflake characteristics worth knowing when running Laravel against
+it:
+
+- **DDL is never transactional.** Every DDL statement commits implicitly, so
+  a migration that fails halfway leaves the schema partially changed —
+  Laravel cannot roll it back. Keep migrations small and idempotent where
+  possible.
+- **Connections are slow to establish** (often 1–2 seconds, since they
+  negotiate a cloud session). Long-running processes such as queue workers
+  and Laravel Octane amortize this nicely; short-lived processes that open a
+  fresh connection per request will feel it.
+- **Queries cost money, not just time.** Every query keeps the warehouse
+  resumed, so N+1 query patterns hurt the bill as well as latency. Eager
+  load relations and batch your writes (`insert()` with many rows compiles
+  to one multi-row statement).
+- **Snowflake is an analytical database.** Single-row lookups and writes are
+  much slower than on OLTP databases — that's by design. Use it for what it
+  is good at: large scans, aggregations and reporting.
+
 ## Testing
 
-The package ships with a [Pest](https://pestphp.com) test suite:
+The package ships with a [Pest](https://pestphp.com) test suite, plus
+[Pint](https://laravel.com/docs/pint) for code style and
+[PHPStan](https://phpstan.org) for static analysis:
 
 ```bash
 composer test
+composer lint
+composer analyse
 ```
 
 ## Further documentation

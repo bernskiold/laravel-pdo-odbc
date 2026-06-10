@@ -2,6 +2,8 @@
 
 namespace Bernskiold\LaravelSnowflake\Grammars;
 
+use const FILTER_VALIDATE_BOOLEAN;
+
 use Bernskiold\LaravelSnowflake\Concerns\GrammarHelper;
 use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Schema\Blueprint;
@@ -15,8 +17,6 @@ use function is_bool;
 use function is_float;
 use function is_int;
 use function is_null;
-
-use const FILTER_VALIDATE_BOOLEAN;
 
 /**
  * Schema grammar for Snowflake.
@@ -51,10 +51,9 @@ class SchemaGrammar extends BaseGrammar
     /**
      * Compile the query to determine if the given table exists.
      *
-     * @param string      $database
-     * @param string      $table
-     * @param string|null $schema
-     *
+     * @param  string  $database
+     * @param  string  $table
+     * @param  string|null  $schema
      * @return string
      */
     public function compileTableExists($database, $table, $schema = null)
@@ -75,8 +74,7 @@ class SchemaGrammar extends BaseGrammar
     /**
      * Compile the query to determine the tables.
      *
-     * @param string|string[]|null $schema
-     *
+     * @param  string|string[]|null  $schema
      * @return string
      */
     public function compileTables($schema)
@@ -92,8 +90,7 @@ class SchemaGrammar extends BaseGrammar
     /**
      * Compile the query to determine the views.
      *
-     * @param string|string[]|null $schema
-     *
+     * @param  string|string[]|null  $schema
      * @return string
      */
     public function compileViews($schema)
@@ -109,9 +106,8 @@ class SchemaGrammar extends BaseGrammar
     /**
      * Compile the query to determine the columns of a table.
      *
-     * @param string|null $schema
-     * @param string      $table
-     *
+     * @param  string|null  $schema
+     * @param  string  $table
      * @return string
      */
     public function compileColumns($schema, $table)
@@ -138,9 +134,8 @@ class SchemaGrammar extends BaseGrammar
      *
      * Snowflake does not have indexes, so this yields an empty result set.
      *
-     * @param string|null $schema
-     * @param string      $table
-     *
+     * @param  string|null  $schema
+     * @param  string  $table
      * @return string
      */
     public function compileIndexes($schema, $table)
@@ -155,9 +150,8 @@ class SchemaGrammar extends BaseGrammar
      * whose columns are not exposed through information_schema, so this
      * yields an empty result set.
      *
-     * @param string|null $schema
-     * @param string      $table
-     *
+     * @param  string|null  $schema
+     * @param  string  $table
      * @return string
      */
     public function compileForeignKeys($schema, $table)
@@ -169,7 +163,7 @@ class SchemaGrammar extends BaseGrammar
     /**
      * Compile a schema filter clause for information_schema queries.
      *
-     * @param string|string[]|null $schema
+     * @param  string|string[]|null  $schema
      */
     protected function compileSchemaFilter($schema): string
     {
@@ -360,8 +354,7 @@ class SchemaGrammar extends BaseGrammar
     /**
      * Compile a create database command.
      *
-     * @param string $name
-     *
+     * @param  string  $name
      * @return string
      */
     public function compileCreateDatabase($name)
@@ -523,9 +516,10 @@ class SchemaGrammar extends BaseGrammar
     /**
      * Compile a change column command into a series of SQL statements.
      *
-     * @throws RuntimeException
      *
      * @return array
+     *
+     * @throws RuntimeException
      */
     public function compileChange(Blueprint $blueprint, Fluent $command)
     {
@@ -535,8 +529,7 @@ class SchemaGrammar extends BaseGrammar
     /**
      * Compile an index creation command.
      *
-     * @param string $type
-     *
+     * @param  string  $type
      * @return string
      */
     protected function compileKey(Blueprint $blueprint, Fluent $command, $type)
@@ -905,9 +898,10 @@ class SchemaGrammar extends BaseGrammar
     /**
      * Create the column definition for a generated, computed column type.
      *
-     * @throws RuntimeException
      *
      * @return void
+     *
+     * @throws RuntimeException
      */
     protected function typeComputed(Fluent $column)
     {
@@ -924,6 +918,8 @@ class SchemaGrammar extends BaseGrammar
         if (! is_null($column->virtualAs)) {
             return " as ({$column->virtualAs})";
         }
+
+        return null;
     }
 
     /**
@@ -936,6 +932,8 @@ class SchemaGrammar extends BaseGrammar
         if (! is_null($column->storedAs)) {
             return " as ({$column->storedAs})";
         }
+
+        return null;
     }
 
     /**
@@ -948,6 +946,8 @@ class SchemaGrammar extends BaseGrammar
         if (! is_null($column->collation)) {
             return " collate '{$column->collation}'";
         }
+
+        return null;
     }
 
     /**
@@ -960,6 +960,8 @@ class SchemaGrammar extends BaseGrammar
         if (! is_null($column->comment)) {
             return ' comment '.$this->quoteStringLiteral($column->comment);
         }
+
+        return null;
     }
 
     /**
@@ -972,6 +974,8 @@ class SchemaGrammar extends BaseGrammar
         if (! is_null($column->default)) {
             return ' default '.$this->getDefaultValue($column->default, $column->type);
         }
+
+        return null;
     }
 
     /**
@@ -984,6 +988,8 @@ class SchemaGrammar extends BaseGrammar
         if (in_array($column->type, $this->serials, true) && $column->autoIncrement) {
             return ' autoincrement';
         }
+
+        return null;
     }
 
     /**
@@ -997,9 +1003,11 @@ class SchemaGrammar extends BaseGrammar
             return $column->nullable ? ' null' : ' not null';
         }
 
-        if (false === $column->nullable) {
+        if ($column->nullable === false) {
             return ' not null';
         }
+
+        return null;
     }
 
     /**
@@ -1015,6 +1023,8 @@ class SchemaGrammar extends BaseGrammar
         if (in_array($column->type, $this->serials, true) && $column->autoIncrement) {
             return ' primary key';
         }
+
+        return null;
     }
 
     /**
@@ -1079,8 +1089,7 @@ class SchemaGrammar extends BaseGrammar
     /**
      * Format a value so that it can be used in "default" clauses.
      *
-     * @param mixed $value
-     *
+     * @param  mixed  $value
      * @return string
      */
     protected function getDefaultValue($value, $type = null)
@@ -1089,7 +1098,7 @@ class SchemaGrammar extends BaseGrammar
             return $this->getValue($value);
         }
 
-        if ('boolean' === $type || is_bool($value)) {
+        if ($type === 'boolean' || is_bool($value)) {
             return filter_var($value, FILTER_VALIDATE_BOOLEAN) ? 'TRUE' : 'FALSE';
         }
 

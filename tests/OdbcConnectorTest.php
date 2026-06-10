@@ -4,7 +4,7 @@ use Bernskiold\LaravelSnowflake\Odbc\OdbcConnector;
 
 function buildDsn(array $config): string
 {
-    $connector = new OdbcConnector();
+    $connector = new OdbcConnector;
     $method = new ReflectionMethod($connector, 'buildDsnDynamicly');
 
     return $method->invoke($connector, $config);

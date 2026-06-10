@@ -2,13 +2,13 @@
 
 namespace Bernskiold\LaravelSnowflake\Odbc;
 
+use Bernskiold\LaravelSnowflake\Contracts\OdbcDriver;
 use Closure;
 use Exception;
 use Illuminate\Database\Connectors\Connector;
 use Illuminate\Database\Connectors\ConnectorInterface;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Str;
-use Bernskiold\LaravelSnowflake\Contracts\OdbcDriver;
 use PDO;
 
 class OdbcConnector extends Connector implements ConnectorInterface, OdbcDriver
@@ -53,7 +53,7 @@ class OdbcConnector extends Connector implements ConnectorInterface, OdbcDriver
     public static function registerDriver(): Closure
     {
         return function ($connection, $database, $prefix, $config) {
-            $connection = (new self())->connect($config);
+            $connection = (new self)->connect($config);
             if ($flavour = Arr::get($config, 'options.flavour')) {
                 $connection->setAttribute(PDO::ATTR_STATEMENT_CLASS, [$flavour, [$connection]]);
             }

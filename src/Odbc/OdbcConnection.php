@@ -3,7 +3,7 @@
 namespace Bernskiold\LaravelSnowflake\Odbc;
 
 use Illuminate\Database\Connection;
-use Illuminate\Database\Query\Processors\Processor as Processor;
+use Illuminate\Database\Query\Processors\Processor;
 
 class OdbcConnection extends Connection
 {
@@ -15,7 +15,7 @@ class OdbcConnection extends Connection
             return new $queryGrammar($this);
         }
 
-        return parent::getDefaultQueryGrammar($this);
+        return parent::getDefaultQueryGrammar();
     }
 
     public function getDefaultSchemaGrammar()
@@ -26,7 +26,7 @@ class OdbcConnection extends Connection
             return new $schemaGrammar($this);
         }
 
-        return parent::getDefaultSchemaGrammar($this);
+        return parent::getDefaultSchemaGrammar();
     }
 
     /**
@@ -41,16 +41,16 @@ class OdbcConnection extends Connection
     /**
      * Get the default post processor instance.
      *
-     * @return \Illuminate\Database\Query\Processors\Processor
+     * @return Processor
      */
     protected function getDefaultPostProcessor()
     {
         $processor = $this->getConfig('options.processor');
 
         if ($processor) {
-            return new $processor();
+            return new $processor;
         }
 
-        return new Processor();
+        return new Processor;
     }
 }

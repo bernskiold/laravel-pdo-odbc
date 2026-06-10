@@ -2,6 +2,7 @@
 
 namespace Bernskiold\LaravelSnowflake\Schema;
 
+use Bernskiold\LaravelSnowflake\Grammars\SchemaGrammar;
 use Illuminate\Database\Schema\Builder as BaseBuilder;
 
 use function count;
@@ -9,10 +10,17 @@ use function count;
 class Builder extends BaseBuilder
 {
     /**
+     * The schema grammar instance. Custom grammars configured through the
+     * "options.grammar.schema" connection option must extend SchemaGrammar.
+     *
+     * @var SchemaGrammar
+     */
+    protected $grammar;
+
+    /**
      * Determine if the given table exists.
      *
-     * @param string $table
-     *
+     * @param  string  $table
      * @return bool
      */
     public function hasTable($table)
@@ -88,8 +96,7 @@ class Builder extends BaseBuilder
     /**
      * Create a database in the schema.
      *
-     * @param string $name
-     *
+     * @param  string  $name
      * @return bool
      */
     public function createDatabase($name)
@@ -102,8 +109,7 @@ class Builder extends BaseBuilder
     /**
      * Drop a database from the schema.
      *
-     * @param string $name
-     *
+     * @param  string  $name
      * @return bool
      */
     public function dropDatabase($name)
@@ -116,8 +122,7 @@ class Builder extends BaseBuilder
     /**
      * Drop a database from the schema if the database exists.
      *
-     * @param string $name
-     *
+     * @param  string  $name
      * @return bool
      */
     public function dropDatabaseIfExists($name)

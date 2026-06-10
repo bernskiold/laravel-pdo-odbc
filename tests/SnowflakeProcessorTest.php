@@ -21,7 +21,7 @@ it('supports a custom sequence column for insertGetId', function () {
 });
 
 it('processes information_schema columns into the Laravel shape', function () {
-    $processor = new SnowflakeProcessor();
+    $processor = new SnowflakeProcessor;
 
     $columns = $processor->processColumns([
         (object) [

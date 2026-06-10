@@ -2,6 +2,8 @@
 
 namespace Bernskiold\LaravelSnowflake\PDO;
 
+use const FILTER_VALIDATE_BOOLEAN;
+
 use Illuminate\Support\Str;
 use PDO;
 use PDOStatement;
@@ -12,8 +14,6 @@ use function is_float;
 use function is_int;
 use function is_null;
 use function is_string;
-
-use const FILTER_VALIDATE_BOOLEAN;
 
 /**
  * Statement class for Snowflake ODBC connections.
@@ -37,7 +37,7 @@ class Statement extends PDOStatement
 
     public function bindValue($parameter, $value, $type = null): bool
     {
-        $type = null === $value ? PDO::PARAM_NULL : $type;
+        $type = $value === null ? PDO::PARAM_NULL : $type;
         $this->bindings[$parameter] = [$value, $type];
 
         return true;
@@ -76,7 +76,7 @@ class Statement extends PDOStatement
         // The Snowflake ODBC driver executes DDL during prepare, so run it
         // directly instead of preparing it twice.
         if (Str::startsWith(strtoupper(trim($query)), ['CREATE', 'ALTER', 'DROP', 'TRUNCATE'])) {
-            return false !== $this->pdo->exec($query);
+            return $this->pdo->exec($query) !== false;
         }
 
         // reset PDO Statement for "parent"
@@ -96,13 +96,13 @@ class Statement extends PDOStatement
         foreach ($this->bindings as $key => $param) {
             [$val, $type] = $param;
 
-            if (is_null($val) || PDO::PARAM_NULL === $type) {
+            if (is_null($val) || $type === PDO::PARAM_NULL) {
                 $val = 'null';
-            } elseif (is_bool($val) || PDO::PARAM_BOOL === $type) {
+            } elseif (is_bool($val) || $type === PDO::PARAM_BOOL) {
                 $val = filter_var($val, FILTER_VALIDATE_BOOLEAN) ? 'TRUE' : 'FALSE';
             } elseif (is_int($val) || is_float($val)) {
                 $val = (string) $val;
-            } elseif (PDO::PARAM_INT === $type) {
+            } elseif ($type === PDO::PARAM_INT) {
                 $val = (string) (int) $val;
             } else {
                 // Backslash is an escape character inside Snowflake string

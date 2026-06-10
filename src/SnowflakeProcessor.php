@@ -12,8 +12,7 @@ class SnowflakeProcessor extends BaseProcessor
     /**
      * Process the results of a columns query.
      *
-     * @param array $results
-     *
+     * @param  array  $results
      * @return array
      */
     public function processColumns($results)
@@ -53,10 +52,14 @@ class SnowflakeProcessor extends BaseProcessor
      * double-quoted so the result key matches the requested column name
      * regardless of the connection's casing mode.
      *
-     * @param string      $sql
-     * @param array       $values
-     * @param string|null $sequence
+     * WARNING: this is inherently racy — under concurrent writers the
+     * returned id may belong to another session's insert. Prefer
+     * client-generated keys (UUIDs/ULIDs) for tables written to by
+     * concurrent processes.
      *
+     * @param  string  $sql
+     * @param  array  $values
+     * @param  string|null  $sequence
      * @return int|string
      */
     public function processInsertGetId(Builder $query, $sql, $values, $sequence = null)

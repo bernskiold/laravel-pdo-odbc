@@ -9,9 +9,7 @@ class BindingCapturingStatement extends PDOStatement
 {
     public array $bound = [];
 
-    public function __construct()
-    {
-    }
+    public function __construct() {}
 
     public function bindValue($param, $value, $type = PDO::PARAM_STR): bool
     {

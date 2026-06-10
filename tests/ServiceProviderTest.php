@@ -5,6 +5,8 @@ use Bernskiold\LaravelSnowflake\Grammars\SchemaGrammar;
 use Bernskiold\LaravelSnowflake\Schema\Builder as SchemaBuilder;
 use Bernskiold\LaravelSnowflake\SnowflakeProcessor;
 use Illuminate\Database\Connection;
+use Illuminate\Database\Query\Grammars\Grammar;
+use Illuminate\Database\Query\Processors\Processor;
 use Illuminate\Support\Facades\DB;
 
 it('registers the snowflake driver', function () {
@@ -44,14 +46,14 @@ it('uses the snowflake grammars, processor and schema builder', function () {
 it('allows custom grammars and processor via the connection options', function () {
     $connection = $this->makeConnection([
         'options' => [
-            'processor' => Illuminate\Database\Query\Processors\Processor::class,
+            'processor' => Processor::class,
             'grammar' => [
-                'query' => Illuminate\Database\Query\Grammars\Grammar::class,
+                'query' => Grammar::class,
                 'schema' => Illuminate\Database\Schema\Grammars\Grammar::class,
             ],
         ],
     ]);
 
-    expect(get_class($connection->getQueryGrammar()))->toBe(Illuminate\Database\Query\Grammars\Grammar::class)
-        ->and(get_class($connection->getPostProcessor()))->toBe(Illuminate\Database\Query\Processors\Processor::class);
+    expect(get_class($connection->getQueryGrammar()))->toBe(Grammar::class)
+        ->and(get_class($connection->getPostProcessor()))->toBe(Processor::class);
 });

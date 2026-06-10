@@ -21,7 +21,7 @@ it('never coerces numeric strings', function () {
 });
 
 it('binds booleans as TRUE/FALSE strings and detects parameter types', function () {
-    $statement = new BindingCapturingStatement();
+    $statement = new BindingCapturingStatement;
 
     $this->makeConnection()->bindValues($statement, [true, false, '00123', 42, '42', 1.5, 'text', null]);
 
@@ -38,7 +38,7 @@ it('binds booleans as TRUE/FALSE strings and detects parameter types', function 
 });
 
 it('keeps named parameters when binding values', function () {
-    $statement = new BindingCapturingStatement();
+    $statement = new BindingCapturingStatement;
 
     $this->makeConnection()->bindValues($statement, ['name' => 'John']);
 

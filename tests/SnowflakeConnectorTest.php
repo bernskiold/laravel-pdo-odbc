@@ -4,7 +4,7 @@ use Bernskiold\LaravelSnowflake\SnowflakeConnector;
 
 function configureKeyPairAuth(array $config, bool $usingSnowflakeDriver = false): array
 {
-    $connector = new SnowflakeConnector();
+    $connector = new SnowflakeConnector;
     $method = new ReflectionMethod($connector, 'configureKeyPairAuth');
 
     return $method->invoke($connector, $config, $usingSnowflakeDriver);

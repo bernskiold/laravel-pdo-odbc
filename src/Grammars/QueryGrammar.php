@@ -35,7 +35,7 @@ class QueryGrammar extends Grammar
      */
     protected function shouldUseIlike(): bool
     {
-        $value = $this->connection?->getConfig('options.use_ilike');
+        $value = $this->connection->getConfig('options.use_ilike');
 
         return (bool) ($value ?? config('snowflake.use_ilike', true));
     }
@@ -108,7 +108,6 @@ class QueryGrammar extends Grammar
      * @param  string  $table
      * @param  string  $columns
      * @param  string  $where
-     *
      * @return string
      */
     protected function compileUpdateWithJoins(Builder $query, $table, $columns, $where)
@@ -151,7 +150,6 @@ class QueryGrammar extends Grammar
      *
      * @param  string  $table
      * @param  string  $where
-     *
      * @return string
      */
     protected function compileDeleteWithJoins(Builder $query, $table, $where)
@@ -193,7 +191,7 @@ class QueryGrammar extends Grammar
         // Expose the bound values as a derived table. Snowflake names the
         // columns of a VALUES clause column1..columnN, so alias them back to
         // the real column names.
-        $source = collect(array_values($columns))
+        $source = collect($columns)
             ->map(fn ($column, $index) => 'column'.($index + 1).' as '.$this->wrap($column))
             ->implode(', ');
 
@@ -244,8 +242,7 @@ class QueryGrammar extends Grammar
     /**
      * Compile an aggregated select clause.
      *
-     * @param array $aggregate
-     *
+     * @param  array  $aggregate
      * @return string
      */
     protected function compileAggregate(Builder $query, $aggregate)
@@ -257,7 +254,7 @@ class QueryGrammar extends Grammar
         // it into account when it performs the aggregating operations on the data.
         if (is_array($query->distinct)) {
             $column = 'distinct '.$this->columnize($query->distinct);
-        } elseif ($query->distinct && '*' !== $column) {
+        } elseif ($query->distinct && $column !== '*') {
             $column = 'distinct '.$column;
         }
 
@@ -271,8 +268,7 @@ class QueryGrammar extends Grammar
      *
      * Snowflake has no row-level locking.
      *
-     * @param bool|string $value
-     *
+     * @param  bool|string  $value
      * @return string
      */
     protected function compileLock(Builder $query, $value)
@@ -295,8 +291,7 @@ class QueryGrammar extends Grammar
     /**
      * Wrap a union subquery in parentheses.
      *
-     * @param string $sql
-     *
+     * @param  string  $sql
      * @return string
      */
     protected function wrapUnion($sql)
@@ -307,8 +302,7 @@ class QueryGrammar extends Grammar
     /**
      * Compile a "where date" clause.
      *
-     * @param array $where
-     *
+     * @param  array  $where
      * @return string
      */
     protected function whereDate(Builder $query, $where)
@@ -319,8 +313,7 @@ class QueryGrammar extends Grammar
     /**
      * Compile a "where day" clause.
      *
-     * @param array $where
-     *
+     * @param  array  $where
      * @return string
      */
     protected function whereDay(Builder $query, $where)
@@ -331,8 +324,7 @@ class QueryGrammar extends Grammar
     /**
      * Compile a "where month" clause.
      *
-     * @param array $where
-     *
+     * @param  array  $where
      * @return string
      */
     protected function whereMonth(Builder $query, $where)
@@ -343,8 +335,7 @@ class QueryGrammar extends Grammar
     /**
      * Compile a "where year" clause.
      *
-     * @param array $where
-     *
+     * @param  array  $where
      * @return string
      */
     protected function whereYear(Builder $query, $where)
@@ -355,8 +346,7 @@ class QueryGrammar extends Grammar
     /**
      * Compile a "where time" clause.
      *
-     * @param array $where
-     *
+     * @param  array  $where
      * @return string
      */
     protected function whereTime(Builder $query, $where)
@@ -365,11 +355,38 @@ class QueryGrammar extends Grammar
     }
 
     /**
+     * Compile a "where fulltext" clause using Snowflake's SEARCH function.
+     *
+     * An analyzer can be chosen via the options array:
+     * whereFullText('body', 'query', ['analyzer' => 'UNICODE_ANALYZER']).
+     *
+     * @see https://docs.snowflake.com/en/sql-reference/functions/search
+     *
+     * @param  array  $where
+     * @return string
+     */
+    public function whereFullText(Builder $query, $where)
+    {
+        $columns = $this->columnize($where['columns']);
+
+        if (count($where['columns']) > 1) {
+            $columns = '('.$columns.')';
+        }
+
+        $value = $this->parameter($where['value']);
+
+        if ($analyzer = $where['options']['analyzer'] ?? null) {
+            return 'search('.$columns.', '.$value.", analyzer => '".str_replace("'", "''", $analyzer)."')";
+        }
+
+        return 'search('.$columns.', '.$value.')';
+    }
+
+    /**
      * Compile a date based where clause.
      *
-     * @param string $type
-     * @param array  $where
-     *
+     * @param  string  $type
+     * @param  array  $where
      * @return string
      */
     protected function dateBasedWhere($type, Builder $query, $where)
@@ -378,7 +395,7 @@ class QueryGrammar extends Grammar
         $value = $this->parameter($where['value']);
 
         // For full date comparisons rely on a native date cast instead of string formatting
-        if ('%Y-%m-%d' === $type) {
+        if ($type === '%Y-%m-%d') {
             return "{$column} {$where['operator']} {$value}::DATE";
         }
 
@@ -414,8 +431,7 @@ class QueryGrammar extends Grammar
     /**
      * Wrap the given JSON selector.
      *
-     * @param string $value
-     *
+     * @param  string  $value
      * @return string
      */
     protected function wrapJsonSelector($value)
@@ -428,9 +444,8 @@ class QueryGrammar extends Grammar
     /**
      * Compile a "JSON contains" statement into SQL.
      *
-     * @param string $column
-     * @param string $value
-     *
+     * @param  string  $column
+     * @param  string  $value
      * @return string
      */
     protected function compileJsonContains($column, $value)
@@ -443,8 +458,7 @@ class QueryGrammar extends Grammar
     /**
      * Prepare the binding for a "JSON contains" statement.
      *
-     * @param mixed $binding
-     *
+     * @param  mixed  $binding
      * @return string
      */
     public function prepareBindingForJsonContains($binding)
@@ -455,8 +469,7 @@ class QueryGrammar extends Grammar
     /**
      * Compile a "JSON contains key" statement into SQL.
      *
-     * @param string $column
-     *
+     * @param  string  $column
      * @return string
      */
     protected function compileJsonContainsKey($column)
@@ -467,10 +480,9 @@ class QueryGrammar extends Grammar
     /**
      * Compile a "JSON length" statement into SQL.
      *
-     * @param string $column
-     * @param string $operator
-     * @param string $value
-     *
+     * @param  string  $column
+     * @param  string  $operator
+     * @param  string  $value
      * @return string
      */
     protected function compileJsonLength($column, $operator, $value)

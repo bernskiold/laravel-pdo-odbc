@@ -23,7 +23,7 @@ trait GrammarHelper
      */
     public function isCaseSensitive(): bool
     {
-        $configured = $this->connection?->getConfig('options.case_sensitive');
+        $configured = $this->connection->getConfig('options.case_sensitive');
 
         return (bool) ($configured ?? config('snowflake.case_sensitive', false));
     }
@@ -40,13 +40,12 @@ trait GrammarHelper
     /**
      * Wrap a single identifier segment in keyword identifiers.
      *
-     * @param string $value
-     *
+     * @param  string  $value
      * @return string
      */
     protected function wrapValue($value)
     {
-        if ('*' === $value) {
+        if ($value === '*') {
             return $value;
         }
 

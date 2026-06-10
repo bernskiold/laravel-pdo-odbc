@@ -100,8 +100,8 @@ it('compiles drop table statements', function () {
     $grammar = schemaConnection()->getSchemaGrammar();
     $table = blueprint('users');
 
-    expect($grammar->compileDrop($table, new Fluent()))->toBe('drop table USERS')
-        ->and($grammar->compileDropIfExists($table, new Fluent()))->toBe('drop table if exists USERS');
+    expect($grammar->compileDrop($table, new Fluent))->toBe('drop table USERS')
+        ->and($grammar->compileDropIfExists($table, new Fluent))->toBe('drop table if exists USERS');
 });
 
 it('compiles a rename table statement', function () {

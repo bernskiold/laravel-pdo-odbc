@@ -3,6 +3,7 @@
 namespace LaravelPdoOdbc\Flavours\Snowflake\Grammars;
 
 use Illuminate\Database\Connection;
+use Illuminate\Database\Query\Expression;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Database\Schema\Grammars\Grammar as BaseGrammar;
 use Illuminate\Support\Fluent;
@@ -1167,7 +1168,7 @@ class Schema extends BaseGrammar
     protected function getDefaultValue($value, $type = null)
     {
         if ($value instanceof Expression) {
-            return $value;
+            return $this->getValue($value);
         }
 
         if ('boolean' === $type) {
